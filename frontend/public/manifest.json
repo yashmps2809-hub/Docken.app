@@ -1,0 +1,17 @@
+{
+  "name": "DOCKEN Medical",
+  "short_name": "DOCKEN",
+  "description": "Professional Medical Booking & Live Queue",
+  "start_url": "/JEC.html",
+  "display": "standalone",
+  "background_color": "#f0fdf4",
+  "theme_color": "#00A556",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

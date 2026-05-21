@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOCKEN — See the Line. Skip the Stress.</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-1: #ff9a9e;
+    --bg-2: #fecfef;
+    --bg-3: #a18cd1;
+    --bg-4: #fbc2eb;
+    --surface: rgba(255, 255, 255, 0.7);
+    --surface2: rgba(255, 255, 255, 0.9);
+    --border: rgba(255, 255, 255, 0.5);
+    --accent: #ff4757;
+    --accent2: #1e90ff;
+    --text: #2f3542;
+    --muted: #57606f;
+    --danger: #ff4757;
+    --warn: #ffa502;
+    --shadow-3d: 6px 6px 0px rgba(0,0,0,0.15);
+    --shadow-inner: inset 4px 4px 10px rgba(255,255,255,0.7), inset -4px -4px 10px rgba(0,0,0,0.05);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: \'DM Sans\', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: linear-gradient(120deg, var(--bg-1) 0%, var(--bg-2) 20%, var(--bg-3) 80%, var(--bg-4) 100%);
+    background-size: 300% 300%;
+    animation: gradientBG 15s ease infinite;
+  }
+
+  @keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* ── PAGES & TRANSITIONS ── */
+  .page { 
+    display: none; 
+    min-height: 100vh; 
+    opacity: 0;
+    transform: perspective(1000px) translateZ(-50px) rotateX(2deg);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .page.active { 
+    display: block; 
+    opacity: 1;
+    transform: perspective(1000px) translateZ(0) rotateX(0);
+  }
+
+  /* ════════════════════════════
+     HOME PAGE
+  ════════════════════════════ */
+  .home-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 40px;
+    position: sticky; top: 0;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 100;
+    border-bottom: 2px solid rgba(255,255,255,0.6);
+    box-shadow: 0 4px 30px rgba(0,0,0,0.05);
+  }
+
+  .logo {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: 2.2rem; letter-spacing: 0.06em;
+    color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+    text-shadow: 2px 2px 0px rgba(255,255,255,0.8);
+  }
+
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-3d), inset 2px 2px 5px rgba(255,255,255,0.4);
+  }
+
+  .logo-icon span {
+    width: 14px; height: 14px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2);
+  }
+
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: #fff;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;
+    color: var(--accent);
+    box-shadow: var(--shadow-3d);
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,71,87,0.4); }
+    50% { transform: scale(0.8); box-shadow: 0 0 0 6px rgba(255,71,87,0); }
+  }
+
+  .nav-actions { display: flex; gap: 14px; }
+
+  /* ── 3D BUTTONS ── */
+  .btn {
+    padding: 12px 28px;
+    border-radius: 12px;
+    font-family: \'DM Sans\', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.6);
+    color: var(--text);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    border: 1px solid rgba(255,255,255,0.8);
+  }
+  .btn-ghost:hover { 
+    background: #fff; 
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1); 
+  }
+  .btn-ghost:active { transform: translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #ff7b89);
+    color: #fff;
+    box-shadow: 0 6px 0px #c23616, 0 10px 20px rgba(255,71,87,0.4);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+  }
+  .btn-primary:active { 
+    transform: translateY(6px); 
+    box-shadow: 0 0px 0px #c23616, 0 4px 10px rgba(255,71,87,0.4); 
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, var(--accent2), #70a1ff);
+    color: #fff;
+    box-shadow: 0 6px 0px #3742fa, 0 10px 20px rgba(30,144,255,0.4);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+  }
+  .btn-secondary:active { 
+    transform: translateY(6px); 
+    box-shadow: 0 0px 0px #3742fa, 0 4px 10px rgba(30,144,255,0.4); 
+  }
+
+  /* HERO */
+  .hero {
+    padding: 80px 40px 60px;
+    max-width: 1200px; margin: 0 auto;
+    text-align: center;
+  }
+
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.8);
+    border: 2px solid #fff;
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 0.85rem; font-weight: 700;
+    color: var(--accent2);
+    margin-bottom: 30px;
+    box-shadow: var(--shadow-3d);
+  }
+
+  .hero h1 {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: clamp(3.5rem, 8vw, 7rem);
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+    margin-bottom: 24px;
+    color: #fff;
+    text-shadow: 4px 4px 0px var(--accent2), 8px 8px 0px rgba(0,0,0,0.1);
+  }
+
+  .hero h1 .accent { 
+    background: linear-gradient(135deg, var(--accent), #fffa65);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.1));
+  }
+
+  .hero-sub {
+    font-size: 1.2rem;
+    color: var(--text);
+    max-width: 600px;
+    line-height: 1.6;
+    margin: 0 auto 40px;
+    font-weight: 500;
+    background: rgba(255,255,255,0.6);
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: var(--shadow-inner);
+  }
+
+  .hero-pills {
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 14px;
+    margin-bottom: 50px;
+  }
+
+  .pill {
+    padding: 10px 20px;
+    border-radius: 30px;
+    background: #fff;
+    border: 2px solid rgba(255,255,255,0.8);
+    font-size: 0.85rem; font-weight: 700;
+    color: var(--text);
+    box-shadow: var(--shadow-3d);
+    transform: rotate(-2deg);
+    transition: transform 0.2s;
+  }
+  .pill:nth-child(even) { transform: rotate(2deg); }
+  .pill:hover { transform: scale(1.1) rotate(0deg); }
+
+  .hero-cta { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+  .hero-cta .btn { padding: 16px 36px; font-size: 1.1rem; }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    background: rgba(255,255,255,0.5);
+    backdrop-filter: blur(10px);
+    border-top: 4px solid #fff;
+    border-bottom: 4px solid #fff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  }
+
+  .stat-item {
+    padding: 30px 40px;
+    border-right: 2px solid rgba(255,255,255,0.6);
+    text-align: center;
+  }
+  .stat-item:last-child { border-right: none; }
+
+  .stat-num {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: 3.5rem;
+    color: var(--accent2);
+    text-shadow: 2px 2px 0px #fff;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.9rem; font-weight: 700;
+    color: var(--text);
+    margin-top: 8px;
+  }
+
+  /* FEATURE GRID */
+  .section { padding: 100px 40px; max-width: 1200px; margin: 0 auto; }
+
+  .section-label {
+    display: inline-block;
+    background: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 700; font-size: 0.8rem;
+    color: var(--accent);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-3d);
+  }
+
+  .section-title {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    margin-bottom: 50px;
+    color: #fff;
+    text-shadow: 3px 3px 0px var(--text);
+  }
+
+  .feature-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .feature-col {
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(20px);
+    border: 4px solid #fff;
+    border-radius: 24px;
+    padding: 0;
+    box-shadow: var(--shadow-3d);
+    transform: perspective(1000px) rotateY(0deg);
+    transition: transform 0.4s ease;
+  }
+  .feature-col:hover { transform: perspective(1000px) rotateY(-2deg) translateY(-5px); }
+  .feature-col:nth-child(2):hover { transform: perspective(1000px) rotateY(2deg) translateY(-5px); }
+
+  .col-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 24px 28px;
+    border-bottom: 2px solid #fff;
+    font-weight: 800;
+    font-size: 1.1rem;
+    background: rgba(255,255,255,0.5);
+    border-radius: 20px 20px 0 0;
+  }
+
+  .col-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent2);
+    box-shadow: inset 2px 2px 4px rgba(255,255,255,0.8);
+  }
+
+  .feature-item {
+    display: flex; align-items: flex-start; gap: 16px;
+    padding: 24px 28px;
+    border-bottom: 2px solid #fff;
+    background: transparent;
+  }
+  .feature-item:last-child { border-bottom: none; }
+
+  .feat-icon {
+    width: 44px; height: 44px; flex-shrink: 0;
+    background: #fff;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    box-shadow: var(--shadow-inner);
+    color: var(--accent);
+  }
+
+  .feat-title { font-weight: 800; font-size: 1.05rem; margin-bottom: 6px; }
+  .feat-desc { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+
+  /* HOW IT WORKS */
+  .flow-section {
+    padding: 80px 40px;
+    background: rgba(255,255,255,0.4);
+    border-top: 4px solid #fff;
+    border-bottom: 4px solid #fff;
+    backdrop-filter: blur(10px);
+  }
+
+  .flow-inner { max-width: 1200px; margin: 0 auto; text-align: center; }
+
+  .flow-steps {
+    display: flex; justify-content: center; align-items: center;
+    gap: 10px; flex-wrap: wrap;
+    margin-top: 50px;
+  }
+
+  .flow-step {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 24px;
+    background: #fff;
+    border: 3px solid var(--text);
+    border-radius: 20px;
+    font-size: 0.9rem; font-weight: 800;
+    box-shadow: 4px 4px 0px var(--text);
+    transform: rotate(-1deg);
+  }
+  .flow-step:nth-child(even) { transform: rotate(1deg); }
+
+  .flow-dot {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  .flow-arrow {
+    padding: 0 12px;
+    color: var(--text);
+    font-size: 1.5rem;
+    font-weight: 900;
+  }
+
+  /* ════════════════════════════
+     INNER PAGES SHARED
+  ════════════════════════════ */
+  .inner-nav {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 30px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 3px solid #fff;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+    border: none;
+    transition: all 0.1s;
+  }
+  .back-btn:active { transform: translate(3px,3px); box-shadow: 0px 0px 0px; }
+
+  .inner-title {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: 1.8rem; letter-spacing: 0.06em;
+    color: #fff;
+    text-shadow: 2px 2px 0px var(--text);
+  }
+
+  .page-body { padding: 50px 30px; max-width: 900px; margin: 0 auto; }
+
+  /* ── SEARCH ── */
+  .search-bar {
+    display: flex; gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: #fff;
+    border: 3px solid transparent;
+    border-radius: 16px;
+    padding: 18px 24px;
+    font-family: \'DM Sans\', sans-serif;
+    font-size: 1.1rem; font-weight: 600;
+    box-shadow: var(--shadow-inner), 4px 4px 0px rgba(0,0,0,0.05);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent2); }
+
+  /* ── DOCTOR CARDS ── */
+  .doctor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 24px; }
+
+  .doctor-card {
+    background: rgba(255,255,255,0.9);
+    border: 3px solid #fff;
+    border-radius: 24px;
+    padding: 28px;
+    cursor: pointer;
+    box-shadow: var(--shadow-3d);
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .doctor-card:hover { 
+    transform: translateY(-6px) rotate(-1deg); 
+    box-shadow: 10px 10px 0px rgba(0,0,0,0.15);
+    border-color: var(--accent2);
+  }
+
+  .doc-avatar {
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--accent2), #00d2d3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow-inner), 3px 3px 0px rgba(0,0,0,0.1);
+  }
+
+  .doc-name { font-weight: 800; font-size: 1.2rem; margin-bottom: 6px; }
+  .doc-spec { font-size: 0.9rem; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+  .doc-info { font-size: 0.85rem; color: var(--muted); display: flex; flex-direction: column; gap: 6px; font-weight: 500;}
+
+  .doc-wait {
+    margin-top: 20px;
+    padding: 12px 16px;
+    background: #fff;
+    border-radius: 12px;
+    font-size: 0.85rem; font-weight: 700;
+    color: var(--text);
+    box-shadow: var(--shadow-inner);
+    display: flex; justify-content: space-between;
+  }
+
+  /* ── QUEUE ── */
+  .queue-card {
+    background: rgba(255,255,255,0.95);
+    border: 4px solid #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 8px 8px 0px rgba(0,0,0,0.1);
+  }
+
+  .queue-header {
+    padding: 32px;
+    background: linear-gradient(135deg, var(--accent2), #70a1ff);
+    color: #fff;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 4px solid #fff;
+  }
+
+  .queue-num {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: 6rem;
+    line-height: 0.9;
+    text-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+  }
+
+  .queue-label { font-size: 1rem; font-weight: 700; margin-top: 8px; opacity: 0.9; }
+
+  .queue-list { padding: 24px; }
+
+  .queue-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    background: #fff;
+    box-shadow: var(--shadow-inner);
+    transition: all 0.2s;
+  }
+  .queue-row.current { border-left: 6px solid var(--accent); }
+  .queue-row.mine { border-left: 6px solid var(--accent2); background: rgba(30,144,255,0.05); }
+
+  .q-token { font-weight: 800; font-size: 1.2rem; }
+  .q-eta { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+  
+  .q-badge {
+    font-size: 0.7rem; padding: 6px 12px;
+    border-radius: 20px; font-weight: 800;
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+  }
+  .badge-green { background: #fffa65; color: var(--text); }
+  .badge-blue { background: var(--accent2); color: #fff; }
+  .badge-muted { background: #dfe4ea; color: var(--text); }
+
+  /* ── BOOKING & FORMS ── */
+  .booking-form { display: flex; flex-direction: column; gap: 24px; }
+
+  .form-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  .form-input, .form-select {
+    width: 100%;
+    background: #fff;
+    border: 3px solid transparent;
+    border-radius: 16px;
+    padding: 16px 20px;
+    color: var(--text);
+    font-family: \'DM Sans\', sans-serif;
+    font-size: 1.05rem; font-weight: 600;
+    box-shadow: var(--shadow-inner);
+    outline: none;
+    transition: all 0.2s ease;
+    appearance: none;
+  }
+  .form-input:focus, .form-select:focus { 
+    border-color: var(--accent2); 
+    box-shadow: var(--shadow-inner), 0 0 0 4px rgba(30,144,255,0.2);
+  }
+
+  .time-slots { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+
+  .time-slot {
+    padding: 14px;
+    text-align: center;
+    background: #fff;
+    border-radius: 12px;
+    font-size: 0.9rem; font-weight: 800;
+    cursor: pointer;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+    transition: all 0.1s;
+  }
+  .time-slot:hover { transform: translateY(-2px); box-shadow: 5px 5px 0px rgba(0,0,0,0.1); }
+  .time-slot:active { transform: translateY(3px); box-shadow: 0px 0px 0px; }
+  .time-slot.selected { background: var(--accent2); color: #fff; box-shadow: 3px 3px 0px var(--text); }
+  .time-slot.disabled { opacity: 0.5; box-shadow: none; cursor: not-allowed; }
+
+  /* ── SIGNAL ── */
+  .signal-card {
+    text-align: center;
+    padding: 60px 30px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 30px;
+    box-shadow: 8px 8px 0px rgba(0,0,0,0.1);
+  }
+
+  .signal-ring {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: var(--shadow-inner), 0 0 0 10px rgba(255,71,87,0.2);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 30px;
+    animation: ring-pulse 2s infinite;
+    font-size: 3rem;
+  }
+
+  @keyframes ring-pulse {
+    0%,100% { box-shadow: var(--shadow-inner), 0 0 0 0px rgba(255,71,87,0.4); }
+    50% { box-shadow: var(--shadow-inner), 0 0 0 30px rgba(255,71,87,0); }
+  }
+
+  /* ── PROFILE / STATS ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; margin-bottom: 30px; }
+
+  .stat-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: var(--shadow-3d);
+    text-align: center;
+  }
+
+  .s-num {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: 3rem;
+    color: var(--accent2);
+    line-height: 1;
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+  }
+  .s-label { font-size: 0.85rem; font-weight: 700; margin-top: 8px; }
+
+  .review-item {
+    padding: 24px;
+    background: #fff;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-inner);
+  }
+  .review-stars { color: var(--warn); margin-bottom: 10px; font-size: 1.1rem; }
+  .review-text { font-size: 0.95rem; font-weight: 600; line-height: 1.6; }
+  .review-author { font-size: 0.8rem; color: var(--muted); font-weight: 800; margin-top: 12px; }
+
+  /* DOCTOR PAGE */
+  #doctor-page .stats-grid { grid-template-columns: repeat(3,1fr); }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px;
+    background: #fff;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-3d);
+  }
+  .toggle-label { font-weight: 800; font-size: 1rem; }
+  .toggle-desc { font-size: 0.85rem; color: var(--muted); font-weight: 600; margin-top: 6px; }
+
+  .toggle {
+    width: 60px; height: 34px;
+    background: #dfe4ea;
+    border-radius: 17px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.3s;
+    flex-shrink: 0;
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2);
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute; top: 4px; left: 4px;
+    width: 26px; height: 26px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+  }
+  .toggle.on::after { transform: translateX(26px); }
+
+  /* SCHEDULE */
+  .day-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 10px; margin-bottom: 30px; }
+  .day-btn {
+    padding: 16px 0;
+    text-align: center;
+    background: #fff;
+    border-radius: 16px;
+    font-size: 0.9rem; font-weight: 800;
+    cursor: pointer;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+    transition: all 0.1s;
+  }
+  .day-btn:active { transform: translateY(3px); box-shadow: 0 0 0; }
+  .day-btn.active { background: var(--accent2); color: #fff; box-shadow: 3px 3px 0px var(--text); }
+
+  /* ── AUTH ── */
+  .auth-container {
+    max-width: 460px;
+    margin: 60px auto;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(24px);
+    border: 4px solid #fff;
+    border-radius: 30px;
+    padding: 40px;
+    box-shadow: 12px 12px 0px rgba(0,0,0,0.1);
+    transform: perspective(1000px) rotateY(-2deg);
+  }
+  .auth-title {
+    font-family: \'Bebas Neue\', sans-serif;
+    font-size: 2.8rem;
+    margin-bottom: 10px;
+    text-align: center;
+    color: var(--accent2);
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+  }
+  .auth-sub {
+    color: var(--text);
+    font-size: 1rem; font-weight: 600;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .otp-inputs {
+    display: flex; gap: 14px; justify-content: center; margin: 30px 0;
+  }
+  .otp-input {
+    width: 60px; height: 70px;
+    text-align: center;
+    font-size: 2rem; font-weight: 800;
+    background: #fff;
+    border: none;
+    border-radius: 16px;
+    color: var(--text);
+    box-shadow: var(--shadow-inner);
+  }
+  .otp-input:focus { outline: 3px solid var(--accent2); }
+
+  .map-container {
+    width: 100%;
+    height: 300px;
+    border-radius: 20px;
+    border: 4px solid #fff;
+    box-shadow: var(--shadow-3d);
+    overflow: hidden;
+    margin-bottom: 30px;
+  }
+
+  /* ── ALERT ── */
+  .toast {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(150px);
+    background: #fff;
+    border-radius: 20px;
+    padding: 16px 30px;
+    font-size: 1rem; font-weight: 800;
+    z-index: 9998;
+    transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    white-space: nowrap;
+    box-shadow: 8px 8px 0px rgba(0,0,0,0.15);
+    border: 3px solid var(--text);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast .acc { color: var(--accent); }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .hero { padding: 60px 20px 40px; }
+    .hero h1 { font-size: 4rem; }
+    .home-nav { padding: 16px 20px; }
+    .feature-cols { grid-template-columns: 1fr; }
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+    .stat-item { padding: 20px; }
+    .section { padding: 60px 20px; }
+    .flow-section { padding: 50px 20px; }
+    .time-slots { grid-template-columns: repeat(3,1fr); }
+    #doctor-page .stats-grid { grid-template-columns: 1fr 1fr; }
+    .day-grid { grid-template-columns: repeat(4,1fr); }
+    .auth-container { transform: none; margin: 30px 15px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ HOME ══════════════════ -->
+<div id="home" class="page active">
+  <nav class="home-nav">
+    <div class="logo">
+      <div class="logo-icon"><span></span></div>
+      DOCKEN
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE QUEUE
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost" onclick="showPage('doctor-login')">For Doctors</button>
+      <button class="btn btn-primary" onclick="showPage('patient-login')">Get Started</button>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-tag">🏥 Android App · Live Queue Tracking</div>
+    <h1>DOCTOR &amp;<br>PATIENT —<br><span class="accent">CONNECTED.</span><br>IN REAL TIME.</h1>
+    <p class="hero-sub">One app. Live queue tracking · Smart signals · Multi-clinic booking · Zero chaos.</p>
+    <div class="hero-pills">
+      <span class="pill">Live Queue</span>
+      <span class="pill">2-Way Signals</span>
+      <span class="pill">∞ Clinics / Doctor</span>
+      <span class="pill">Zero Chaos</span>
+    </div>
+    <div class="hero-cta">
+      <button class="btn btn-primary" onclick="showPage('patient-login')">I'm a Patient →</button>
+      <button class="btn btn-secondary" onclick="showPage('doctor-login')">I'm a Doctor →</button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num">LIVE</div>
+      <div class="stat-label">Queue Tracking</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">2-WAY</div>
+      <div class="stat-label">Signals</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">∞</div>
+      <div class="stat-label">Clinics / Doctor</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">ZERO</div>
+      <div class="stat-label">Chaos</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">// FEATURES</div>
+    <div class="section-title">EVERYTHING YOU NEED</div>
+    <div class="feature-cols">
+      <div class="feature-col">
+        <div class="col-header">
+          <div class="col-dot"></div>
+          PATIENT
+        </div>
+        <div class="feature-item" onclick="showPage('find-doctor')">
+          <div class="feat-icon">🔍</div>
+          <div><div class="feat-title">Find Doctor</div><div class="feat-desc">Search by name, specialty or area</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('find-doctor')">
+          <div class="feat-icon">🏥</div>
+          <div><div class="feat-title">Pick a Clinic</div><div class="feat-desc">Choose from doctor's multiple clinics</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('book-appointment')">
+          <div class="feat-icon">📅</div>
+          <div><div class="feat-title">Book Appointment</div><div class="feat-desc">Reserve a date &amp; time slot in advance</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('live-queue')">
+          <div class="feat-icon">🎟</div>
+          <div><div class="feat-title">Join Live Queue</div><div class="feat-desc">Get a token — walk in anytime</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('live-queue')">
+          <div class="feat-icon">👁</div>
+          <div><div class="feat-title">See the Line</div><div class="feat-desc">Watch live position &amp; wait time</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('signal-doctor')">
+          <div class="feat-icon">📡</div>
+          <div><div class="feat-title">Signal Doctor</div><div class="feat-desc">"I'm on my way — please wait"</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('live-queue')">
+          <div class="feat-icon">🔔</div>
+          <div><div class="feat-title">Smart Alerts</div><div class="feat-desc">Notified when your turn is near</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('rate-visit')">
+          <div class="feat-icon">⭐</div>
+          <div><div class="feat-title">Rate Your Visit</div><div class="feat-desc">Review doctor after consultation</div></div>
+        </div>
+      </div>
+
+      <div class="feature-col">
+        <div class="col-header">
+          <div class="col-dot" style="background:var(--accent2)"></div>
+          DOCTOR
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-page')">
+          <div class="feat-icon">➕</div>
+          <div><div class="feat-title">Add Clinics</div><div class="feat-desc">Register one or multiple clinics</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-page')">
+          <div class="feat-icon">📆</div>
+          <div><div class="feat-title">Set Schedule</div><div class="feat-desc">Define days &amp; hours per clinic</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-page')">
+          <div class="feat-icon">🟢</div>
+          <div><div class="feat-title">Go Live</div><div class="feat-desc">Open queue — patients can join</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-page')">
+          <div class="feat-icon">📋</div>
+          <div><div class="feat-title">See Live Queue</div><div class="feat-desc">All waiting patients at a glance</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-page')">
+          <div class="feat-icon">📍</div>
+          <div><div class="feat-title">Patient ETA</div><div class="feat-desc">Know who is near, who is far — live</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-page')">
+          <div class="feat-icon">⏭</div>
+          <div><div class="feat-title">Accept / Skip</div><div class="feat-desc">Wait for patient or call next</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-page')">
+          <div class="feat-icon">⏸</div>
+          <div><div class="feat-title">Take a Break</div><div class="feat-desc">Pause — all patients auto notified</div></div>
+        </div>
+        <div class="feature-item" onclick="showPage('doctor-stats')">
+          <div class="feat-icon">📊</div>
+          <div><div class="feat-title">View Stats</div><div class="feat-desc">Daily patients, avg time, reviews</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-inner">
+      <div class="section-label">// HOW IT WORKS</div>
+      <div class="flow-steps">
+        <div class="flow-step" onclick="showPage('find-doctor')"><div class="flow-dot"></div>Find Doctor</div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step" onclick="showPage('find-doctor')"><div class="flow-dot"></div>Pick Clinic</div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step" onclick="showPage('live-queue')"><div class="flow-dot"></div>Join Queue</div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step" onclick="showPage('live-queue')"><div class="flow-dot"></div>Track Live</div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step" onclick="showPage('signal-doctor')"><div class="flow-dot"></div>Signal</div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step"><div class="flow-dot"></div>Walk In</div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step"><div class="flow-dot"></div>See Doctor</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding: 30px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.78rem; font-family:'JetBrains Mono',monospace; letter-spacing:0.08em;">
+    DOCKEN · Doctor &amp; Patient — Connected. Live. · Android
+  </div>
+</div>
+
+<!-- ══════════════════ PATIENT LOGIN ══════════════════ -->
+<div id="patient-login" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="inner-title">PATIENT LOGIN</div>
+  </nav>
+  <div class="page-body">
+    <div class="auth-container">
+      <div class="auth-title">PATIENT LOGIN</div>
+      <div class="auth-sub">Create an account or login to continue</div>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>FULL NAME</label>
+        <input class="form-input" id="patient-name" type="text" placeholder="Your full name">
+      </div>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>EMAIL ID</label>
+        <input class="form-input" id="patient-email" type="email" placeholder="you@example.com">
+      </div>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>MOBILE NUMBER</label>
+        <div style="display:flex; gap:10px;">
+          <input class="form-input" style="width: 80px; text-align: center;" value="+91" disabled>
+          <input class="form-input" id="patient-phone" type="tel" placeholder="10-digit number" maxlength="10">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; padding: 14px;" onclick="sendOTP('patient')">Send OTP →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ DOCTOR LOGIN ══════════════════ -->
+<div id="doctor-login" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="inner-title">DOCTOR LOGIN</div>
+  </nav>
+  <div class="page-body">
+    <div class="auth-container">
+      <div class="auth-title">DOCTOR LOGIN</div>
+      <div class="auth-sub">Create an account or login to continue</div>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>FULL NAME</label>
+        <input class="form-input" id="doctor-name" type="text" placeholder="Dr. Firstname Lastname">
+      </div>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>EMAIL ID</label>
+        <input class="form-input" id="doctor-email" type="email" placeholder="doctor@example.com">
+      </div>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>MOBILE NUMBER</label>
+        <div style="display:flex; gap:10px;">
+          <input class="form-input" style="width: 80px; text-align: center;" value="+91" disabled>
+          <input class="form-input" id="doctor-phone" type="tel" placeholder="10-digit number" maxlength="10">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; padding: 14px;" onclick="sendOTP('doctor')">Send OTP →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ OTP PAGE ══════════════════ -->
+<div id="otp-page" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('login-page')">← Back</button>
+    <div class="inner-title">VERIFY OTP</div>
+  </nav>
+  <div class="page-body">
+    <div class="auth-container">
+      <div class="auth-title">VERIFY OTP</div>
+      <div class="auth-sub">We sent a code to <span id="otp-phone-display" style="color:var(--text);font-weight:600;"></span></div>
+      <div class="otp-inputs">
+        <input class="otp-input" type="text" maxlength="1" oninput="moveNext(this, 'otp2')">
+        <input class="otp-input" id="otp2" type="text" maxlength="1" oninput="moveNext(this, 'otp3')">
+        <input class="otp-input" id="otp3" type="text" maxlength="1" oninput="moveNext(this, 'otp4')">
+        <input class="otp-input" id="otp4" type="text" maxlength="1">
+      </div>
+      <button class="btn btn-primary" style="width:100%; padding: 14px; margin-top: 20px;" onclick="verifyOTP()">Verify &amp; Proceed →</button>
+      <div style="text-align: center; margin-top: 16px; font-size: 0.8rem; color: var(--muted);">
+        Didn't receive it? <span style="color:var(--accent); cursor:pointer;" onclick="showToast('OTP resent!')">Resend</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ FIND DOCTOR ══════════════════ -->
+<div id="find-doctor" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="inner-title">FIND DOCTOR</div>
+  </nav>
+  <div class="page-body">
+    <div class="search-bar">
+      <input class="search-input" placeholder="Search name, specialty, area..." oninput="filterDoctors(this.value)">
+      <button class="btn btn-primary" onclick="showToast('🔍 Searching...')">Search</button>
+    </div>
+    
+    <div class="section-label">// CLINICS IN JABALPUR</div>
+    <div class="map-container">
+      <iframe 
+        width="100%" 
+        height="100%" 
+        frameborder="0" 
+        scrolling="no" 
+        marginheight="0" 
+        marginwidth="0" 
+        src="https://maps.google.com/maps?width=100%25&amp;height=600&amp;hl=en&amp;q=Clinics%20in%20Jabalpur,%20Madhya%20Pradesh+(Docken%20Clinics)&amp;t=&amp;z=13&amp;ie=UTF8&amp;iwloc=B&amp;output=embed">
+      </iframe>
+    </div>
+
+    <div class="section-label">// 4 DOCTORS NEARBY</div>
+    <br>
+    <div class="doctor-grid" id="doctor-grid"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ BOOK APPOINTMENT ══════════════════ -->
+<div id="book-appointment" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('find-doctor')">← Back</button>
+    <div class="inner-title">BOOK APPOINTMENT</div>
+  </nav>
+  <div class="page-body">
+    <div class="booking-form">
+      <div class="form-group">
+        <label>SELECT DOCTOR</label>
+        <select class="form-select">
+          <option>Dr. Priya Sharma — Cardiologist</option>
+          <option>Dr. Rahul Mehta — General Physician</option>
+          <option>Dr. Anita Singh — Dermatologist</option>
+          <option>Dr. Vikram Patel — Orthopedic</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>SELECT CLINIC</label>
+        <select class="form-select">
+          <option>Apollo Clinic, Banjara Hills</option>
+          <option>City Health Centre, Jubilee Hills</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>DATE</label>
+        <input type="date" class="form-input" min="2026-05-16">
+      </div>
+      <div class="form-group">
+        <label>AVAILABLE SLOTS</label>
+        <div class="time-slots">
+          <div class="time-slot selected">09:00</div>
+          <div class="time-slot">09:30</div>
+          <div class="time-slot">10:00</div>
+          <div class="time-slot disabled">10:30</div>
+          <div class="time-slot">11:00</div>
+          <div class="time-slot">11:30</div>
+          <div class="time-slot disabled">12:00</div>
+          <div class="time-slot">14:00</div>
+          <div class="time-slot">14:30</div>
+          <div class="time-slot">15:00</div>
+          <div class="time-slot disabled">15:30</div>
+          <div class="time-slot">16:00</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>YOUR NAME</label>
+        <input class="form-input" placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label>PHONE</label>
+        <input class="form-input" placeholder="+91 XXXXX XXXXX" type="tel">
+      </div>
+      <button class="btn btn-primary" style="padding:16px;font-size:1rem;" onclick="bookAppointment()">Confirm Booking →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ LIVE QUEUE ══════════════════ -->
+<div id="live-queue" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('find-doctor')">← Back</button>
+    <div class="inner-title">LIVE QUEUE</div>
+    <div class="live-badge" style="margin-left:auto">
+      <div class="live-dot"></div>LIVE
+    </div>
+  </nav>
+  <div class="page-body">
+    <div class="queue-card">
+      <div class="queue-header">
+        <div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px;font-family:'JetBrains Mono',monospace;">YOUR TOKEN</div>
+          <div class="queue-num">T-07</div>
+          <div class="queue-label">Dr. Priya Sharma · Apollo Clinic</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">EST. WAIT</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--warn)">~18 min</div>
+          <div style="font-size:0.75rem;color:var(--muted)">3 ahead of you</div>
+        </div>
+      </div>
+      <div class="queue-list">
+        <div class="queue-row current">
+          <div><div class="q-token">T-04</div><div class="q-eta">In Consultation</div></div>
+          <span class="q-badge badge-green">CURRENT</span>
+        </div>
+        <div class="queue-row">
+          <div><div class="q-token">T-05</div><div class="q-eta">~6 min wait</div></div>
+          <span class="q-badge badge-muted">NEXT</span>
+        </div>
+        <div class="queue-row">
+          <div><div class="q-token">T-06</div><div class="q-eta">~12 min wait</div></div>
+          <span class="q-badge badge-muted">WAITING</span>
+        </div>
+        <div class="queue-row mine">
+          <div><div class="q-token">T-07 ← YOU</div><div class="q-eta">~18 min wait</div></div>
+          <span class="q-badge badge-blue">MY TURN</span>
+        </div>
+        <div class="queue-row">
+          <div><div class="q-token">T-08</div><div class="q-eta">~24 min wait</div></div>
+          <span class="q-badge badge-muted">WAITING</span>
+        </div>
+        <div class="queue-row">
+          <div><div class="q-token">T-09</div><div class="q-eta">~30 min wait</div></div>
+          <span class="q-badge badge-muted">WAITING</span>
+        </div>
+      </div>
+    </div>
+    <br>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="showPage('signal-doctor')" style="flex:1">📡 Signal Doctor</button>
+      <button class="btn btn-secondary" onclick="showToast('🔔 Smart alerts are ON — we'll notify you!')">🔔 Smart Alerts</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SIGNAL DOCTOR ══════════════════ -->
+<div id="signal-doctor" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('live-queue')">← Back</button>
+    <div class="inner-title">SIGNAL DOCTOR</div>
+  </nav>
+  <div class="page-body">
+    <div class="signal-card">
+      <div class="signal-ring">📡</div>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2rem;margin-bottom:10px">SEND YOUR SIGNAL</h2>
+      <p style="color:var(--muted);font-size:0.9rem;line-height:1.7;margin-bottom:30px;max-width:360px;margin-left:auto;margin-right:auto">
+        Let the doctor know you're on your way.<br>They'll hold your spot.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:360px;margin:0 auto">
+        <button class="btn btn-primary" style="padding:16px;font-size:0.95rem" onclick="sendSignal('🚗 I'm on my way — please wait!')">
+          🚗 I'm On My Way
+        </button>
+        <button class="btn btn-secondary" style="padding:16px;font-size:0.95rem" onclick="sendSignal('⏳ Running 10 mins late — please hold!')">
+          ⏳ Running a Bit Late
+        </button>
+        <button class="btn btn-secondary" style="padding:16px;font-size:0.95rem" onclick="sendSignal('🚕 Almost there — 2 mins away!')">
+          🚕 Almost There
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ RATE VISIT ══════════════════ -->
+<div id="rate-visit" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="inner-title">RATE YOUR VISIT</div>
+  </nav>
+  <div class="page-body">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px">
+      <div class="doc-avatar" style="margin-bottom:16px">👩‍⚕️</div>
+      <div class="doc-name" style="font-size:1.1rem">Dr. Priya Sharma</div>
+      <div class="doc-spec">Cardiologist · Apollo Clinic</div>
+      <div style="margin:20px 0;font-size:0.9rem;color:var(--muted)">How was your experience?</div>
+      <div id="stars-row" style="display:flex;gap:10px;font-size:2rem;margin-bottom:20px;cursor:pointer">
+        <span onclick="setStars(1)">☆</span>
+        <span onclick="setStars(2)">☆</span>
+        <span onclick="setStars(3)">☆</span>
+        <span onclick="setStars(4)">☆</span>
+        <span onclick="setStars(5)">☆</span>
+      </div>
+      <textarea class="form-input" rows="4" placeholder="Tell others about your experience..." style="resize:none;margin-bottom:16px"></textarea>
+      <button class="btn btn-primary" style="width:100%;padding:14px" onclick="submitReview()">Submit Review →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ DOCTOR PAGE ══════════════════ -->
+<div id="doctor-page" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('home')">← Home</button>
+    <div class="inner-title">DOCTOR DASHBOARD</div>
+    <div class="live-badge" style="margin-left:auto">
+      <div class="live-dot"></div>LIVE
+    </div>
+  </nav>
+  <div class="page-body">
+    <div class="stats-grid" id="doctor-page">
+      <div class="stat-card"><div class="s-num">12</div><div class="s-label">Today's Patients</div></div>
+      <div class="stat-card"><div class="s-num">6</div><div class="s-label">In Queue Now</div></div>
+      <div class="stat-card"><div class="s-num">4.8⭐</div><div class="s-label">Avg Rating</div></div>
+    </div>
+
+    <div class="section-label" style="margin-bottom:14px">// QUEUE CONTROLS</div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">Go Live</div>
+        <div class="toggle-desc">Open queue — patients can join</div>
+      </div>
+      <div class="toggle on" onclick="toggleSwitch(this,'Queue is now LIVE! Patients can join.')"></div>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">Take a Break</div>
+        <div class="toggle-desc">Pause — all patients auto notified</div>
+      </div>
+      <div class="toggle" onclick="toggleSwitch(this,'Break mode ON — patients notified.')"></div>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">Smart Notifications</div>
+        <div class="toggle-desc">Alert patients when near their turn</div>
+      </div>
+      <div class="toggle on" onclick="toggleSwitch(this,'Smart notifications toggled.')"></div>
+    </div>
+    <br>
+    <div class="section-label" style="margin-bottom:14px">// LIVE QUEUE</div>
+    <div class="queue-card">
+      <div class="queue-list" style="padding:12px">
+        <div class="queue-row current">
+          <div><div class="q-token">T-04 · Ravi Kumar</div><div class="q-eta">In Consultation · ~5 min</div></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="padding:7px 14px;font-size:0.75rem" onclick="showToast('✅ Next patient called!')">Next</button>
+          </div>
+        </div>
+        <div class="queue-row">
+          <div><div class="q-token">T-05 · Meera Nair</div><div class="q-eta">ETA: 3 min · Nearby</div></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" style="padding:7px 12px;font-size:0.75rem" onclick="showToast('⏭ T-05 skipped.')">Skip</button>
+          </div>
+        </div>
+        <div class="queue-row">
+          <div><div class="q-token">T-06 · Arjun Iyer</div><div class="q-eta">ETA: 10 min · En route</div></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" style="padding:7px 12px;font-size:0.75rem" onclick="showToast('⏭ T-06 skipped.')">Skip</button>
+          </div>
+        </div>
+        <div class="queue-row">
+          <div><div class="q-token">T-07 · Priya Reddy</div><div class="q-eta">ETA: 18 min · Far</div></div>
+          <span class="q-badge badge-muted">WAITING</span>
+        </div>
+      </div>
+    </div>
+    <br>
+    <div style="display:flex;gap:12px">
+      <button class="btn btn-primary" onclick="showPage('doctor-stats')" style="flex:1">📊 View Stats</button>
+      <button class="btn btn-secondary" onclick="showPage('set-schedule')" style="flex:1">📆 Set Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ DOCTOR STATS ══════════════════ -->
+<div id="doctor-stats" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('doctor-page')">← Back</button>
+    <div class="inner-title">STATS &amp; REVIEWS</div>
+  </nav>
+  <div class="page-body">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="s-num">247</div><div class="s-label">Total Patients</div></div>
+      <div class="stat-card"><div class="s-num">18m</div><div class="s-label">Avg Wait Time</div></div>
+      <div class="stat-card"><div class="s-num">4.8</div><div class="s-label">Overall Rating</div></div>
+      <div class="stat-card"><div class="s-num">96%</div><div class="s-label">Satisfaction Rate</div></div>
+    </div>
+    <div class="section-label" style="margin-bottom:14px">// RECENT REVIEWS</div>
+    <div class="review-item">
+      <div class="review-stars">★★★★★</div>
+      <div class="review-text">Excellent experience! No waiting confusion, the app told me exactly when to arrive. Doctor was very attentive.</div>
+      <div class="review-author">— T-04 · Ravi Kumar · Today</div>
+    </div>
+    <div class="review-item">
+      <div class="review-stars">★★★★☆</div>
+      <div class="review-text">Very smooth process. The live queue feature is a game changer. Will definitely use again.</div>
+      <div class="review-author">— T-02 · Ananya R · Yesterday</div>
+    </div>
+    <div class="review-item">
+      <div class="review-stars">★★★★★</div>
+      <div class="review-text">No more waiting room anxiety! Came exactly on time, straight to consultation. Brilliant app.</div>
+      <div class="review-author">— T-01 · Sanjay M · Yesterday</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SET SCHEDULE ══════════════════ -->
+<div id="set-schedule" class="page">
+  <nav class="inner-nav">
+    <button class="back-btn" onclick="showPage('doctor-page')">← Back</button>
+    <div class="inner-title">SET SCHEDULE</div>
+  </nav>
+  <div class="page-body">
+    <div class="section-label" style="margin-bottom:14px">// SELECT CLINIC</div>
+    <select class="form-select" style="margin-bottom:24px">
+      <option>Apollo Clinic, Banjara Hills</option>
+      <option>City Health Centre, Jubilee Hills</option>
+    </select>
+    <div class="section-label" style="margin-bottom:14px">// WORKING DAYS</div>
+    <div class="day-grid">
+      <div class="day-btn active" onclick="toggleDay(this)">SUN</div>
+      <div class="day-btn active" onclick="toggleDay(this)">MON</div>
+      <div class="day-btn active" onclick="toggleDay(this)">TUE</div>
+      <div class="day-btn active" onclick="toggleDay(this)">WED</div>
+      <div class="day-btn active" onclick="toggleDay(this)">THU</div>
+      <div class="day-btn active" onclick="toggleDay(this)">FRI</div>
+      <div class="day-btn" onclick="toggleDay(this)">SAT</div>
+    </div>
+    <div class="section-label" style="margin-bottom:14px">// HOURS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
+      <div class="form-group">
+        <label>START TIME</label>
+        <input type="time" class="form-input" value="09:00">
+      </div>
+      <div class="form-group">
+        <label>END TIME</label>
+        <input type="time" class="form-input" value="17:00">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:24px">
+      <label>AVG CONSULTATION TIME (MINUTES)</label>
+      <input class="form-input" type="number" value="15" min="5" max="60">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:16px" onclick="showToast('✅ Schedule saved successfully!')">Save Schedule →</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── AUTH & ROUTING ──
+let pendingRole = 'patient';
+let generatedOTP = '';
+
+function sendOTP(role) {
+  pendingRole = role;
+  const inputId = role === 'doctor' ? 'doctor-phone' : 'patient-phone';
+  const phone = document.getElementById(inputId).value;
+  
+  if(phone.length < 10) {
+    showToast('⚠️ Please enter a valid 10-digit number');
+    return;
+  }
+  
+  // Generate real-time 4-digit OTP
+  generatedOTP = Math.floor(1000 + Math.random() * 9000).toString();
+  
+  document.getElementById('otp-phone-display').innerText = '+91 ' + phone;
+  showToast('📲 OTP sent to ' + phone);
+  
+  // Simulate SMS by showing an alert with the OTP
+  setTimeout(() => {
+    alert(`[SIMULATED SMS]\nYour DOCKEN OTP is: ${generatedOTP}\nDo not share this with anyone.`);
+    showPage('otp-page');
+    
+    // Clear previous inputs
+    document.querySelectorAll('.otp-input').forEach(inp => inp.value = '');
+    const firstInput = document.querySelector('.otp-input');
+    if (firstInput) firstInput.focus();
+  }, 800);
+}
+
+function moveNext(el, nextId) {
+  if(el.value.length >= 1) {
+    const next = document.getElementById(nextId);
+    if(next) next.focus();
+  }
+}
+
+function verifyOTP() {
+  const inputs = document.querySelectorAll('.otp-input');
+  let enteredOTP = '';
+  inputs.forEach(inp => enteredOTP += inp.value);
+  
+  if (enteredOTP.length !== 4) {
+    showToast('⚠️ Please enter the complete 4-digit OTP');
+    return;
+  }
+  
+  if (enteredOTP !== generatedOTP) {
+    showToast('❌ Incorrect OTP. Please try again.');
+    return;
+  }
+
+  showToast('✅ Verification successful!');
+  setTimeout(() => {
+    if (pendingRole === 'doctor') {
+      showPage('doctor-page');
+    } else {
+      showPage('find-doctor');
+    }
+  }, 800);
+}
+
+// ── PAGE ROUTING ──
+function showPage(id) {
+  const pages = document.querySelectorAll('.page');
+  pages.forEach(p => {
+    p.classList.remove('active');
+  });
+  
+  // A tiny delay to let the active class application trigger the animation
+  setTimeout(() => {
+    document.getElementById(id).classList.add('active');
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }, 10);
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── DOCTORS DATA ──
+const doctors = [
+  { name: 'Dr. Priya Sharma', spec: 'Cardiologist', clinic: 'Apollo Clinic, Banjara Hills', wait: '~18 min', queue: 6, rating: 4.8, emoji: '👩‍⚕️' },
+  { name: 'Dr. Rahul Mehta', spec: 'General Physician', clinic: 'City Health Centre, Jubilee Hills', wait: '~8 min', queue: 2, rating: 4.6, emoji: '👨‍⚕️' },
+  { name: 'Dr. Anita Singh', spec: 'Dermatologist', clinic: 'Skin Care, Madhapur', wait: '~35 min', queue: 9, rating: 4.9, emoji: '👩‍⚕️' },
+  { name: 'Dr. Vikram Patel', spec: 'Orthopedic', clinic: 'Bone & Joint, HITEC City', wait: 'Available', queue: 0, rating: 4.7, emoji: '🦴' }
+];
+
+function renderDoctors(list) {
+  const grid = document.getElementById('doctor-grid');
+  grid.innerHTML = list.map(d => `
+    <div class="doctor-card" onclick="selectDoctor('${d.name}')">
+      <div class="doc-avatar">${d.emoji}</div>
+      <div class="doc-name">${d.name}</div>
+      <div class="doc-spec">${d.spec}</div>
+      <div class="doc-info">
+        <span>📍 ${d.clinic}</span>
+        <span>⭐ ${d.rating} rating</span>
+      </div>
+      <div class="doc-wait">
+        <span>⏱ ${d.wait}</span>
+        <span>${d.queue > 0 ? d.queue + ' in queue' : '✅ Open'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterDoctors(q) {
+  const f = doctors.filter(d =>
+    d.name.toLowerCase().includes(q.toLowerCase()) ||
+    d.spec.toLowerCase().includes(q.toLowerCase()) ||
+    d.clinic.toLowerCase().includes(q.toLowerCase())
+  );
+  renderDoctors(f);
+}
+
+function selectDoctor(name) {
+  showToast(`✅ Selected ${name}`);
+  setTimeout(() => showPage('book-appointment'), 700);
+}
+
+renderDoctors(doctors);
+
+// ── BOOKING ──
+function bookAppointment() {
+  showToast('🎟 Booking confirmed! Token T-07 issued.');
+  setTimeout(() => showPage('live-queue'), 1200);
+}
+
+// ── SIGNAL ──
+function sendSignal(msg) {
+  showToast(`📡 Signal sent: "${msg}"`);
+  setTimeout(() => showPage('live-queue'), 1200);
+}
+
+// ── STARS ──
+let starRating = 0;
+function setStars(n) {
+  starRating = n;
+  const spans = document.querySelectorAll('#stars-row span');
+  spans.forEach((s, i) => { s.textContent = i < n ? '⭐' : '☆'; });
+}
+
+function submitReview() {
+  if (!starRating) { showToast('⚠️ Please select a star rating!'); return; }
+  showToast(`⭐ Review submitted — thank you!`);
+  setTimeout(() => showPage('home'), 1200);
+}
+
+// ── TOGGLES ──
+function toggleSwitch(el, msg) {
+  el.classList.toggle('on');
+  showToast(msg);
+}
+
+// ── DAYS ──
+function toggleDay(el) {
+  el.classList.toggle('active');
+}
+
+// ── TIME SLOTS ──
+document.querySelectorAll('.time-slot:not(.disabled)').forEach(s => {
+  s.addEventListener('click', function() {
+    document.querySelectorAll('.time-slot').forEach(x => x.classList.remove('selected'));
+    this.classList.add('selected');
+  });
+});
+</script>
+</body>
+</html>
