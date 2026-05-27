@@ -7,12 +7,12 @@ import { Geolocation } from '@capacitor/geolocation';
 const DoctorRegistration = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { name: initialName, email: initialEmail, phone: initialPhone } = location.state || { name: '', email: '', phone: '' };
+  const { name: initialName, email: initialEmail } = location.state || { name: '', email: '' };
 
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState(initialPhone || '');
+  const [phone, setPhone] = useState('');
   const [specialty, setSpecialty] = useState('General Physician');
   const [clinics, setClinics] = useState([]);
   const [selectedClinic, setSelectedClinic] = useState('');
