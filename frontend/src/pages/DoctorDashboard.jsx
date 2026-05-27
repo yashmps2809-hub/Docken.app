@@ -57,11 +57,23 @@ const DoctorDashboard = () => {
     };
 
     const updateMapAndTelemetry = async () => {
+      let bookingData = null;
       try {
         const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${trackingModal.booking._id}?t=${Date.now()}`);
-        const bookingData = res.data;
-        
-        const clinicCoords = bookingData.clinicId?.location?.coordinates || [79.9864, 23.1815]; // [lng, lat]
+        bookingData = res.data;
+      } catch (err) {
+        console.error("Telemetry fetch error, using local fallback:", err);
+        // Fallback to local booking info and doctor clinic info
+        bookingData = {
+          ...trackingModal.booking,
+          clinicId: doctorProfile?.clinicId
+        };
+      }
+
+      if (!bookingData) return;
+
+      try {
+        const clinicCoords = (typeof bookingData.clinicId === 'object' && bookingData.clinicId?.location?.coordinates) || [79.9864, 23.1815]; // [lng, lat]
         const clinicLat = clinicCoords[1];
         const clinicLng = clinicCoords[0];
 
@@ -106,8 +118,8 @@ const DoctorDashboard = () => {
           setIframeUrl(url);
           lastCoords = { lat: finalPatientLat, lng: finalPatientLng, active: hasPatientLocation };
         }
-      } catch (err) {
-        console.error("Telemetry fetch error:", err);
+      } catch (innerErr) {
+        console.error("Telemetry processing error:", innerErr);
       }
     };
 
