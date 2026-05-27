@@ -1,6 +1,21 @@
 node_modules/
+**/node_modules/
 .env
+**/.env
 dist/
+**/dist/
 .DS_Store
 *.log
 DockenAndroid/
+.vercel
+**/.vercel
+frontend/.netlify/
+
+# Keystores and local gradle properties
+*.jks
+frontend/android/app/docken-release-key.jks
+frontend/android/keystore.properties
+frontend/android/local.properties
+
+# Secrets
+backend/MONGODB_URI.txt

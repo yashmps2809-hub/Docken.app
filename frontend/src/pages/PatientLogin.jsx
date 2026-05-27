@@ -13,7 +13,7 @@ const PatientLogin = () => {
   useEffect(() => {
     const saved = localStorage.getItem('patientSession');
     if (saved) {
-      navigate('/patient');
+      navigate('/patient/dashboard');
     }
   }, [navigate]);
 
@@ -30,7 +30,7 @@ const PatientLogin = () => {
 
       localStorage.setItem('patientSession', JSON.stringify(patientData));
       alert(`Welcome ${user.displayName}!`);
-      navigate('/patient');
+      navigate('/patient/dashboard');
     } catch (error) {
       console.error(error);
       alert('Google Sign-In Failed. Please ensure Google Auth is enabled in your Firebase Console.');
@@ -38,8 +38,8 @@ const PatientLogin = () => {
   };
 
   const handleSendOTP = () => {
-    if (phone.length < 10) {
-      alert("Please enter a valid 10-digit number");
+    if (!/^\d{10}$/.test(phone)) {
+      alert("Please enter a valid 10-digit mobile number.");
       return;
     }
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -57,7 +57,7 @@ const PatientLogin = () => {
       };
       localStorage.setItem('patientSession', JSON.stringify(patientData));
       alert('Verification successful!');
-      navigate('/patient');
+      navigate('/patient/dashboard');
     } else {
       alert('Invalid OTP');
     }

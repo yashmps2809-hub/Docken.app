@@ -19,7 +19,7 @@ const OtpPage = () => {
       } else {
         try {
           const axios = require('axios').default; // dynamic import for ease
-          const res = await axios.get(`http://localhost:5000/api/doctors/phone/${phone}`);
+          const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/phone/${phone}`);
           // Persist the session
           localStorage.setItem('doctorSession', JSON.stringify(res.data));
           navigate('/doctor/dashboard', { state: { doctor: res.data } });

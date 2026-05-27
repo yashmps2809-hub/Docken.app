@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+import { Geolocation } from '@capacitor/geolocation';
+
 const DoctorRegistration = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,25 +18,62 @@ const DoctorRegistration = () => {
   const [selectedClinic, setSelectedClinic] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Fetch seed clinics so doctor can pick one
-    axios.get('http://localhost:5000/api/clinics/nearby?lat=23.1815&lng=79.9864&radius=1000')
+  const [isLocating, setIsLocating] = useState(false);
+
+  const fetchClinics = (lat, lng) => {
+    axios.get(`https://backend-nine-kappa-32.vercel.app/api/clinics/nearby?lat=${lat}&lng=${lng}&radius=5000`)
       .then(res => {
         setClinics(res.data);
         if (res.data.length > 0) setSelectedClinic(res.data[0]._id);
       })
       .catch(err => console.error(err));
+  };
+
+  useEffect(() => {
+    // Default fallback coordinates
+    fetchClinics(23.1815, 79.9864);
   }, []);
+
+  const handleLocateMe = async () => {
+    setIsLocating(true);
+    try {
+      const permissions = await Geolocation.checkPermissions();
+      if (permissions.location !== 'granted') {
+        const req = await Geolocation.requestPermissions();
+        if (req.location !== 'granted') {
+          alert('Location permission is required to find nearby clinics.');
+          setIsLocating(false);
+          return;
+        }
+      }
+
+      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+      fetchClinics(position.coords.latitude, position.coords.longitude);
+      setIsLocating(false);
+    } catch (err) {
+      console.error(err);
+      alert('Unable to retrieve your location. Please ensure GPS is turned on.');
+      setIsLocating(false);
+    }
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !selectedClinic || !password) {
       alert("Please fill out all required fields (Name, Email, Password, Clinic).");
       return;
     }
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters for security.");
+      return;
+    }
+    if (phone && !/^\d{10}$/.test(phone)) {
+      alert("Mobile number must be exactly 10 digits.");
+      return;
+    }
 
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/doctors/register', {
+      const res = await axios.post('https://backend-nine-kappa-32.vercel.app/api/doctors/register', {
         name, email, password, phone, specialty, clinicId: selectedClinic
       });
       // Persist the session
@@ -84,8 +123,19 @@ const DoctorRegistration = () => {
           </div>
 
           <div className="form-group" style={{marginBottom: '20px'}}>
-            <label>SELECT CLINIC *</label>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <label>SELECT CLINIC *</label>
+              <button 
+                className="btn-text" 
+                onClick={handleLocateMe} 
+                disabled={isLocating}
+                style={{fontSize: '0.8rem', color: '#00A556', background: 'none', border: 'none', cursor: 'pointer', padding: 0}}
+              >
+                {isLocating ? 'Locating...' : '📍 Fetch Nearby'}
+              </button>
+            </div>
             <select className="form-select" value={selectedClinic} onChange={e => setSelectedClinic(e.target.value)}>
+              {clinics.length === 0 ? <option value="">No clinics nearby</option> : null}
               {clinics.map(c => (
                 <option key={c._id} value={c._id}>{c.name}</option>
               ))}

@@ -3,6 +3,22 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const Doctor = require('../models/Doctor');
 const Clinic = require('../models/Clinic');
+const Booking = require('../models/Booking');
+const admin = require('firebase-admin');
+
+// Helper to safely send push notifications
+const sendPushNotification = async (fcmToken, title, body) => {
+  if (!fcmToken || !admin.apps.length) return;
+  try {
+    await admin.messaging().send({
+      token: fcmToken,
+      notification: { title, body },
+      android: { priority: 'high' }
+    });
+  } catch (err) {
+    console.log('Failed to send push notification', err.message);
+  }
+};
 
 // @route   POST /api/doctors/register
 // @desc    Register a new doctor
@@ -118,6 +134,42 @@ router.get('/email/:email', async (req, res) => {
     if (!doctor) {
       return res.status(404).json({ error: 'Doctor not found' });
     }
+    res.json(doctor);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+// @route   PUT /api/doctors/:doctorId/delay
+// @desc    Broadcast a delay to the queue
+router.put('/:doctorId/delay', async (req, res) => {
+  try {
+    const { delayedByMins } = req.body;
+    const doctor = await Doctor.findByIdAndUpdate(
+      req.params.doctorId,
+      { delayedByMins },
+      { new: true }
+    );
+    
+    // Notify all waiting patients if delay > 0
+    if (delayedByMins > 0 && doctor) {
+      const waitingPatients = await Booking.find({ 
+        clinicId: doctor.clinicId, 
+        doctorName: doctor.name, 
+        status: 'waiting',
+        fcmToken: { $ne: '' }
+      });
+      
+      for (const p of waitingPatients) {
+        sendPushNotification(
+          p.fcmToken,
+          "Doctor Delay Notice ⚠️",
+          `Dr. ${doctor.name} is running approximately ${delayedByMins} minutes late.`
+        );
+      }
+    }
+    
     res.json(doctor);
   } catch (err) {
     console.error(err);

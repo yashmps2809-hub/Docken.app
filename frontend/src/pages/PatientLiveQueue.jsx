@@ -5,35 +5,86 @@ import { useNavigate, useLocation } from 'react-router-dom';
 const PatientLiveQueue = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { booking, clinicId, doctorName } = location.state || { booking: { tokenNumber: 'T-00' }, clinicId: '1', doctorName: 'Doctor' };
+  
+  const [bookingState, setBookingState] = useState(() => {
+    if (location.state) return location.state;
+    const saved = localStorage.getItem('activeBooking');
+    return saved ? JSON.parse(saved) : { booking: null, clinicId: null, doctorName: null };
+  });
+  
+  const { booking, clinicId, doctorName } = bookingState;
   
   const [queue, setQueue] = useState([]);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    fetchQueue();
-    // In a real app with Firebase/WebSockets, this would be a listener. 
-    // Since we're using Mongo + Node, we poll every 5 seconds.
-    const interval = setInterval(fetchQueue, 5000);
+    if (!booking || !clinicId) {
+      alert("No active booking found. Please search for a doctor.");
+      navigate('/patient');
+      return;
+    }
+    pollQueue();
+    const interval = setInterval(pollQueue, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [booking, clinicId, navigate]);
 
-  const fetchQueue = async () => {
+  const pollQueue = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/queue/${clinicId}/${doctorName}`);
-      setQueue(res.data);
+      const qRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/${clinicId}/${doctorName}?t=${Date.now()}`);
+      setQueue(qRes.data);
+      const statsRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/stats/${clinicId}/${doctorName}?t=${Date.now()}`);
+      setStats(statsRes.data);
+      
+      // If we are no longer in the queue (completed/cancelled), show result
+      const stillInQueue = qRes.data.some(b => b.tokenNumber === booking.tokenNumber);
+      if (!stillInQueue) {
+        localStorage.removeItem('activeBooking');
+        
+        // Fetch our booking to check if it was completed (with prescription)
+        try {
+          const patientSession = JSON.parse(localStorage.getItem('patientSession') || '{}');
+          const phone = patientSession.phone || patientSession.email;
+          if (phone) {
+            const histRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/history/${phone}`);
+            const myCompleted = histRes.data.find(b => b.tokenNumber === booking.tokenNumber && b.status === 'completed');
+            if (myCompleted) {
+              // Store the completed consultation to show on dashboard
+              localStorage.setItem('justCompleted', JSON.stringify(myCompleted));
+              navigate('/patient/dashboard');
+              return;
+            }
+          }
+        } catch (e) { console.log('Could not fetch completion status'); }
+        
+        navigate('/patient/dashboard');
+      }
     } catch (err) {
       console.error("Failed to fetch queue", err);
     }
   };
 
   const getMyPosition = () => {
+    if (!booking) return -1;
     return queue.findIndex(b => b.tokenNumber === booking.tokenNumber);
   };
 
   const currentToken = queue.length > 0 && queue[0].status === 'current' ? queue[0].tokenNumber : (queue.length > 0 ? queue[0].tokenNumber : '--');
   const myPos = getMyPosition();
   const ahead = myPos > 0 ? myPos : 0;
-  const eta = ahead * 6; // 6 mins per patient
+  const eta = (ahead * 6) + (stats?.delayedByMins || 0);
+
+  const handleCancel = async () => {
+    if (window.confirm("Are you sure you want to cancel your appointment?")) {
+      try {
+        await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/cancel/${booking._id}`);
+        localStorage.removeItem('activeBooking');
+        alert("Booking cancelled.");
+        navigate('/patient/dashboard');
+      } catch (err) {
+        alert("Failed to cancel booking.");
+      }
+    }
+  };
 
   return (
     <div className="page active">
@@ -44,7 +95,14 @@ const PatientLiveQueue = () => {
             <div className="live-dot"></div>LIVE
           </div>
         </div>
-        <div className="queue-card">
+        
+        {stats?.delayedByMins > 0 && (
+          <div style={{background: '#fee2e2', color: '#dc2626', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '10px'}}>
+            ⚠️ <strong>Delay Notice:</strong> The doctor is running approximately {stats.delayedByMins} mins late.
+          </div>
+        )}
+
+        <div className="queue-card glass-card">
           <div className="queue-header">
             <div>
               <div style={{fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '4px', fontFamily: "'JetBrains Mono', monospace"}}>YOUR TOKEN</div>
@@ -58,7 +116,7 @@ const PatientLiveQueue = () => {
             </div>
           </div>
           
-          <div className="queue-list">
+          <div className="queue-list stagger-in">
             {queue.map((b, index) => {
               const isMe = b.tokenNumber === booking.tokenNumber;
               const isCurrent = b.status === 'current';
@@ -82,8 +140,8 @@ const PatientLiveQueue = () => {
         </div>
         <br />
         <div style={{display: 'flex', gap: '12px', flexWrap: 'wrap'}}>
-          <button className="btn btn-primary" style={{flex: 1}} onClick={() => alert('Signal sent!')}>📡 Signal Doctor</button>
-          <button className="btn btn-secondary" onClick={() => alert('Smart alerts ON!')}>🔔 Smart Alerts</button>
+          <button className="btn btn-primary ripple" style={{flex: 1}} onClick={() => alert('Signal sent!')}>📡 Signal Doctor</button>
+          <button className="btn btn-secondary ripple" style={{flex: 1}} onClick={handleCancel}>❌ Cancel Booking</button>
         </div>
       </div>
     </div>

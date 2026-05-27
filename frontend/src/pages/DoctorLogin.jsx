@@ -27,7 +27,7 @@ const DoctorLogin = () => {
       return;
     }
     try {
-      const res = await axios.post('http://localhost:5000/api/doctors/login', { email, password });
+      const res = await axios.post('https://backend-nine-kappa-32.vercel.app/api/doctors/login', { email, password });
       localStorage.setItem('doctorSession', JSON.stringify(res.data));
       navigate('/doctor/dashboard', { state: { doctor: res.data } });
     } catch (err) {
@@ -41,7 +41,7 @@ const DoctorLogin = () => {
       const user = result.user;
       
       try {
-        const res = await axios.get(`http://localhost:5000/api/doctors/email/${user.email}`);
+        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${user.email}`);
         localStorage.setItem('doctorSession', JSON.stringify(res.data));
         navigate('/doctor/dashboard', { state: { doctor: res.data } });
       } catch (err) {
@@ -71,7 +71,7 @@ const DoctorLogin = () => {
   const handleVerifyOTP = async () => {
     if (otp === generatedOTP || otp === '123456') {
       try {
-        const res = await axios.get(`http://localhost:5000/api/doctors/email/${phone}@docken.app`);
+        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${phone}@docken.app`);
         localStorage.setItem('doctorSession', JSON.stringify(res.data));
         navigate('/doctor/dashboard', { state: { doctor: res.data } });
       } catch (err) {
