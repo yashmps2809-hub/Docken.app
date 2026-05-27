@@ -71,12 +71,12 @@ const DoctorLogin = () => {
   const handleVerifyOTP = async () => {
     if (otp === generatedOTP || otp === '123456') {
       try {
-        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${phone}@docken.app`);
+        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/phone/${phone}`);
         localStorage.setItem('doctorSession', JSON.stringify(res.data));
         navigate('/doctor/dashboard', { state: { doctor: res.data } });
       } catch (err) {
         if (err.response && err.response.status === 404) {
-          navigate('/doctor/register', { state: { name: '', email: `${phone}@docken.app` } });
+          navigate('/doctor/register', { state: { name: '', email: '', phone: phone } });
         } else {
           alert('Server error');
         }

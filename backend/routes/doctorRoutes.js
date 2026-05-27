@@ -141,6 +141,21 @@ router.get('/email/:email', async (req, res) => {
   }
 });
 
+// @route   GET /api/doctors/phone/:phone
+// @desc    Get doctor by phone (for OTP login verification)
+router.get('/phone/:phone', async (req, res) => {
+  try {
+    const doctor = await Doctor.findOne({ phone: req.params.phone }).populate('clinicId');
+    if (!doctor) {
+      return res.status(404).json({ error: 'Doctor not found' });
+    }
+    res.json(doctor);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 // @route   PUT /api/doctors/:doctorId/delay
 // @desc    Broadcast a delay to the queue
 router.put('/:doctorId/delay', async (req, res) => {
