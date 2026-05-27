@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
+import axios from 'axios';
 
 const PatientLogin = () => {
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
+  const [patientName, setPatientName] = useState('');
   const [showOTP, setShowOTP] = useState(false);
   const [otp, setOtp] = useState('');
   const [generatedOTP, setGeneratedOTP] = useState('');
@@ -28,6 +30,16 @@ const PatientLogin = () => {
         photoURL: user.photoURL,
       };
 
+      try {
+        await axios.post('https://backend-nine-kappa-32.vercel.app/api/patients/save', {
+          name: patientData.name,
+          phone: patientData.email, // using email as unique identifier for google users
+          email: patientData.email
+        });
+      } catch (err) {
+        console.error('Failed to save patient profile to MongoDB:', err);
+      }
+
       localStorage.setItem('patientSession', JSON.stringify(patientData));
       alert(`Welcome ${user.displayName}!`);
       navigate('/patient/dashboard');
@@ -38,6 +50,10 @@ const PatientLogin = () => {
   };
 
   const handleSendOTP = () => {
+    if (!patientName.trim()) {
+      alert("Please enter your name first.");
+      return;
+    }
     if (!/^\d{10}$/.test(phone)) {
       alert("Please enter a valid 10-digit mobile number.");
       return;
@@ -48,13 +64,21 @@ const PatientLogin = () => {
     alert(`[SIMULATED SMS]\nYour DOCKEN OTP is: ${code}`);
   };
 
-  const handleVerifyOTP = () => {
+  const handleVerifyOTP = async () => {
     if (otp === generatedOTP || otp === '123456') {
       const patientData = {
-        name: 'Guest Patient', // Default name for phone login
+        name: patientName.trim() || 'Guest Patient',
         phone: phone,
         email: `${phone}@docken.app` // placeholder
       };
+
+      try {
+        // Save to database
+        await axios.post('https://backend-nine-kappa-32.vercel.app/api/patients/save', patientData);
+      } catch (err) {
+        console.error('Failed to save patient profile to MongoDB:', err);
+      }
+
       localStorage.setItem('patientSession', JSON.stringify(patientData));
       alert('Verification successful!');
       navigate('/patient/dashboard');
@@ -83,6 +107,17 @@ const PatientLogin = () => {
               </button>
 
               <div style={{textAlign: 'center', margin: '20px 0', color: '#9ca3af', fontSize: '0.8rem'}}>OR</div>
+
+              <div className="form-group" style={{marginBottom: '15px'}}>
+                <label>YOUR NAME</label>
+                <input 
+                  className="form-input" 
+                  type="text" 
+                  placeholder="Enter your name" 
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                />
+              </div>
 
               <div className="form-group" style={{marginBottom: '20px'}}>
                 <label>MOBILE NUMBER</label>

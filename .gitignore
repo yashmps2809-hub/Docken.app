@@ -19,3 +19,6 @@ frontend/android/local.properties
 
 # Secrets
 backend/MONGODB_URI.txt
+
+# Local deliverables
+jec-app-apk/
