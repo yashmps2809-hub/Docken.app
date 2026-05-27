@@ -14,6 +14,8 @@ const bookingSchema = new mongoose.Schema({
     default: 'waiting' 
   },
   prescription: { type: String, default: '' },
+  patientLatitude: { type: Number },
+  patientLongitude: { type: Number },
   rating: { type: Number, min: 1, max: 5 },
   completedAt: { type: Date },
   createdAt: { type: Date, default: Date.now }

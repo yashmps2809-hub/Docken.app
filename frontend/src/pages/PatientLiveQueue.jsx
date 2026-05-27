@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Geolocation } from '@capacitor/geolocation';
 
 const PatientLiveQueue = () => {
   const navigate = useNavigate();
@@ -23,6 +24,19 @@ const PatientLiveQueue = () => {
       navigate('/patient');
       return;
     }
+
+    // Request permissions once on mount
+    (async () => {
+      try {
+        const permissions = await Geolocation.checkPermissions();
+        if (permissions.location !== 'granted') {
+          await Geolocation.requestPermissions();
+        }
+      } catch (err) {
+        console.warn("Location permission check failed", err);
+      }
+    })();
+
     pollQueue();
     const interval = setInterval(pollQueue, 5000);
     return () => clearInterval(interval);
@@ -30,10 +44,26 @@ const PatientLiveQueue = () => {
 
   const pollQueue = async () => {
     try {
+      // 1. Fetch Live Queue & Stats
       const qRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/${clinicId}/${doctorName}?t=${Date.now()}`);
       setQueue(qRes.data);
       const statsRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/stats/${clinicId}/${doctorName}?t=${Date.now()}`);
       setStats(statsRes.data);
+
+      // 2. Fetch and upload live location coordinates
+      try {
+        const permissions = await Geolocation.checkPermissions();
+        if (permissions.location === 'granted') {
+          const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+          const { latitude, longitude } = position.coords;
+          await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/location/${booking._id}`, {
+            latitude,
+            longitude
+          });
+        }
+      } catch (locErr) {
+        console.warn("Telemetry location error:", locErr.message);
+      }
       
       // If we are no longer in the queue (completed/cancelled), show result
       const stillInQueue = qRes.data.some(b => b.tokenNumber === booking.tokenNumber);

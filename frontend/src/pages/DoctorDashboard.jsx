@@ -31,6 +31,118 @@ const DoctorDashboard = () => {
   const [rating, setRating] = useState(4.8);
 
   const [prescriptionModal, setPrescriptionModal] = useState({ show: false, bookingId: null, text: '' });
+  const [trackingModal, setTrackingModal] = useState({ show: false, booking: null });
+  const [liveTelemetry, setLiveTelemetry] = useState(null);
+
+  useEffect(() => {
+    if (!trackingModal.show || !trackingModal.booking) return;
+
+    let mapInstance = null;
+    let patientMarker = null;
+    let clinicMarker = null;
+    let routeLine = null;
+    let intervalId = null;
+
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371; // km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
+    const loadLeaflet = () => {
+      if (window.L) return Promise.resolve(window.L);
+      return new Promise((resolve) => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = () => resolve(window.L);
+        document.head.appendChild(script);
+      });
+    };
+
+    const updateMapAndTelemetry = async (L) => {
+      try {
+        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${trackingModal.booking._id}?t=${Date.now()}`);
+        const bookingData = res.data;
+        
+        const clinicCoords = bookingData.clinicId?.location?.coordinates || [79.9864, 23.1815]; // [lng, lat]
+        const clinicLat = clinicCoords[1];
+        const clinicLng = clinicCoords[0];
+
+        const patientLat = bookingData.patientLatitude || (clinicLat + 0.003);
+        const patientLng = bookingData.patientLongitude || (clinicLng + 0.003);
+
+        const dist = calculateDistance(patientLat, patientLng, clinicLat, clinicLng);
+        const etaVal = Math.max(1, Math.round((dist / 30) * 60)); // assume 30 km/h driving speed
+
+        setLiveTelemetry({
+          patientLat,
+          patientLng,
+          clinicLat,
+          clinicLng,
+          distance: dist.toFixed(2),
+          eta: etaVal,
+          active: !!(bookingData.patientLatitude && bookingData.patientLongitude)
+        });
+
+        if (!mapInstance) {
+          mapInstance = L.map('patient-map-div').setView([patientLat, patientLng], 14);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+          }).addTo(mapInstance);
+
+          const clinicIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/619/619054.png',
+            iconSize: [35, 35],
+            iconAnchor: [17, 35]
+          });
+
+          const patientIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+            iconSize: [35, 35],
+            iconAnchor: [17, 35]
+          });
+
+          clinicMarker = L.marker([clinicLat, clinicLng], { icon: clinicIcon }).addTo(mapInstance)
+            .bindPopup("🏥 <strong>Clinic Location</strong>");
+          
+          patientMarker = L.marker([patientLat, patientLng], { icon: patientIcon }).addTo(mapInstance)
+            .bindPopup(`👤 <strong>Patient:</strong> ${bookingData.patientName}`);
+
+          routeLine = L.polyline([[clinicLat, clinicLng], [patientLat, patientLng]], {
+            color: '#00A556',
+            weight: 4,
+            dashArray: '5, 10'
+          }).addTo(mapInstance);
+        } else {
+          patientMarker.setLatLng([patientLat, patientLng]);
+          clinicMarker.setLatLng([clinicLat, clinicLng]);
+          routeLine.setLatLngs([[clinicLat, clinicLng], [patientLat, patientLng]]);
+        }
+      } catch (err) {
+        console.error("Telemetry fetch error:", err);
+      }
+    };
+
+    loadLeaflet().then((L) => {
+      updateMapAndTelemetry(L);
+      intervalId = setInterval(() => updateMapAndTelemetry(L), 4000);
+    });
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (mapInstance) mapInstance.remove();
+    };
+  }, [trackingModal]);
 
   const fetchQueue = async () => {
     if (!doctorProfile) return;
@@ -179,7 +291,14 @@ const DoctorDashboard = () => {
                       {b.distance ? ` · ${b.distance} km away` : ''}
                     </div>
                   </div>
-                  <div style={{display: 'flex', gap: '8px'}}>
+                  <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                    <button 
+                      className="btn btn-secondary ripple" 
+                      style={{padding: '7px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 'auto', background: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1'}}
+                      onClick={() => setTrackingModal({ show: true, booking: b })}
+                    >
+                      📍 Track
+                    </button>
                     {isCurrent ? (
                       <button className="btn btn-primary ripple" style={{padding: '7px 14px', fontSize: '0.75rem'}} onClick={() => handleOpenPrescription(b._id)}>Consultation Complete</button>
                     ) : (
@@ -211,6 +330,44 @@ const DoctorDashboard = () => {
               <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
                 <button className="btn btn-secondary" style={{flex: 1}} onClick={() => setPrescriptionModal({ show: false, bookingId: null, text: '' })}>Cancel</button>
                 <button className="btn btn-primary" style={{flex: 1}} onClick={handleNext}>Finish</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tracking Map Modal */}
+        {trackingModal.show && trackingModal.booking && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+          }}>
+            <div className="bottom-sheet" style={{ padding: '24px', maxWidth: '450px', background: '#fff', borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
+              <div className="bottom-sheet-handle"></div>
+              <h3 style={{ margin: '0 0 5px 0', fontSize: '1.3rem', fontWeight: 900, color: 'var(--text)' }}>📍 Live Patient Tracking</h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '0 0 16px 0', fontWeight: 600 }}>
+                Tracking <strong>{trackingModal.booking.patientName}</strong> (Token: {trackingModal.booking.tokenNumber})
+              </p>
+              
+              <div id="patient-map-div" style={{ width: '100%', height: '280px', borderRadius: '16px', background: '#f8fafc', overflow: 'hidden', border: '1px solid var(--border)' }}></div>
+              
+              <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px', marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Estimated Distance</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text)' }}>{liveTelemetry?.distance || '--'} km</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>ETA to Clinic</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--accent)' }}>~{liveTelemetry?.eta || '--'} mins</div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', fontWeight: 700, color: liveTelemetry?.active ? 'var(--accent)' : 'var(--danger)' }}>
+                <span className="live-dot" style={{ background: liveTelemetry?.active ? 'var(--accent)' : 'var(--danger)', display: 'inline-block' }}></span>
+                {liveTelemetry?.active ? 'PATIENT TELEMETRY ACTIVE (LIVE)' : 'WAITING FOR PATIENT GPS SIGNAL...'}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button className="btn btn-primary ripple" style={{ flex: 1 }} onClick={() => setTrackingModal({ show: false, booking: null })}>Close Tracking</button>
               </div>
             </div>
           </div>
