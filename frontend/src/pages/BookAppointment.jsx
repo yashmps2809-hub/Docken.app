@@ -61,11 +61,6 @@ const BookAppointment = () => {
           <div style={{fontSize: '0.8rem'}}><strong>Clinic:</strong> {clinic.name}</div>
           <div style={{fontSize: '0.8rem'}}><strong>Location:</strong> {clinic.address}</div>
         </div>
-        
-        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px', padding: '10px', borderTop: '1px solid #eee', borderBottom: '1px solid #eee'}}>
-          <span>Consultation Fee</span>
-          <strong>₹500</strong>
-        </div>
 
         <button className="btn btn-primary" style={{width: '100%', marginBottom: '10px'}} onClick={handleBook} disabled={loading}>
           {loading ? 'Confirming...' : 'Confirm & Book Appointment'}
@@ -76,6 +71,7 @@ const BookAppointment = () => {
       </div>
     </div>
   );
+
 
 };
 

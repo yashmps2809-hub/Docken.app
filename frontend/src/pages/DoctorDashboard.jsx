@@ -123,10 +123,18 @@ const DoctorDashboard = () => {
             weight: 4,
             dashArray: '5, 10'
           }).addTo(mapInstance);
+
+          setTimeout(() => {
+            if (mapInstance) {
+              mapInstance.invalidateSize();
+              mapInstance.fitBounds([[clinicLat, clinicLng], [patientLat, patientLng]], { padding: [40, 40] });
+            }
+          }, 350);
         } else {
           patientMarker.setLatLng([patientLat, patientLng]);
           clinicMarker.setLatLng([clinicLat, clinicLng]);
           routeLine.setLatLngs([[clinicLat, clinicLng], [patientLat, patientLng]]);
+          mapInstance.fitBounds([[clinicLat, clinicLng], [patientLat, patientLng]], { padding: [40, 40] });
         }
       } catch (err) {
         console.error("Telemetry fetch error:", err);
