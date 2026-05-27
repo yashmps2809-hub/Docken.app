@@ -33,15 +33,17 @@ const DoctorDashboard = () => {
   const [prescriptionModal, setPrescriptionModal] = useState({ show: false, bookingId: null, text: '' });
   const [trackingModal, setTrackingModal] = useState({ show: false, booking: null });
   const [liveTelemetry, setLiveTelemetry] = useState(null);
+  const [iframeUrl, setIframeUrl] = useState('');
+  const [simulationActive, setSimulationActive] = useState(false);
 
   useEffect(() => {
-    if (!trackingModal.show || !trackingModal.booking) return;
+    if (!trackingModal.show || !trackingModal.booking) {
+      setIframeUrl('');
+      return;
+    }
 
-    let mapInstance = null;
-    let patientMarker = null;
-    let clinicMarker = null;
-    let routeLine = null;
     let intervalId = null;
+    let lastCoords = null;
 
     const calculateDistance = (lat1, lon1, lat2, lon2) => {
       const R = 6371; // km
@@ -54,31 +56,7 @@ const DoctorDashboard = () => {
       return R * c;
     };
 
-    const loadGoogleMaps = () => {
-      if (window.google && window.google.maps) return Promise.resolve(window.google.maps);
-      return new Promise((resolve, reject) => {
-        const existing = document.getElementById('google-maps-script');
-        if (existing) {
-          const checkGoogle = setInterval(() => {
-            if (window.google && window.google.maps) {
-              clearInterval(checkGoogle);
-              resolve(window.google.maps);
-            }
-          }, 100);
-          return;
-        }
-
-        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-        const script = document.createElement('script');
-        script.id = 'google-maps-script';
-        script.src = `https://maps.googleapis.com/maps/api/js${apiKey ? `?key=${apiKey}` : ''}`; // dynamically loaded Google Maps SDK
-        script.onload = () => resolve(window.google.maps);
-        script.onerror = (err) => reject(err);
-        document.head.appendChild(script);
-      });
-    };
-
-    const updateMapAndTelemetry = async (googleMaps) => {
+    const updateMapAndTelemetry = async () => {
       try {
         const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${trackingModal.booking._id}?t=${Date.now()}`);
         const bookingData = res.data;
@@ -87,93 +65,106 @@ const DoctorDashboard = () => {
         const clinicLat = clinicCoords[1];
         const clinicLng = clinicCoords[0];
 
-        const patientLat = bookingData.patientLatitude || (clinicLat + 0.003);
-        const patientLng = bookingData.patientLongitude || (clinicLng + 0.003);
+        const patientLat = bookingData.patientLatitude;
+        const patientLng = bookingData.patientLongitude;
+        
+        const hasPatientLocation = !!(patientLat && patientLng);
 
-        const dist = calculateDistance(patientLat, patientLng, clinicLat, clinicLng);
+        // Fallback coordinates if location is not active yet (for initial render)
+        const finalPatientLat = patientLat || (clinicLat + 0.003);
+        const finalPatientLng = patientLng || (clinicLng + 0.003);
+
+        const dist = calculateDistance(finalPatientLat, finalPatientLng, clinicLat, clinicLng);
         const etaVal = Math.max(1, Math.round((dist / 30) * 60)); // assume 30 km/h driving speed
 
         setLiveTelemetry({
-          patientLat,
-          patientLng,
+          patientLat: finalPatientLat,
+          patientLng: finalPatientLng,
           clinicLat,
           clinicLng,
           distance: dist.toFixed(2),
           eta: etaVal,
-          active: !!(bookingData.patientLatitude && bookingData.patientLongitude)
+          active: hasPatientLocation
         });
 
-        const clinicPos = { lat: clinicLat, lng: clinicLng };
-        const patientPos = { lat: patientLat, lng: patientLng };
+        // Detect if patient coordinates changed significantly to update iframe without unnecessary flickering
+        const threshold = 0.00015; // ~15-20 meters
+        const isDifferent = !lastCoords || 
+          Math.abs(lastCoords.lat - finalPatientLat) > threshold || 
+          Math.abs(lastCoords.lng - finalPatientLng) > threshold ||
+          lastCoords.active !== hasPatientLocation;
 
-        if (!mapInstance) {
-          const mapEl = document.getElementById('patient-map-div');
-          if (!mapEl) return;
-          mapInstance = new googleMaps.Map(mapEl, {
-            center: patientPos,
-            zoom: 14,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false
-          });
-
-          clinicMarker = new googleMaps.Marker({
-            position: clinicPos,
-            map: mapInstance,
-            title: "Clinic Location",
-            icon: {
-              url: 'https://cdn-icons-png.flaticon.com/512/619/619054.png',
-              scaledSize: new googleMaps.Size(35, 35)
-            }
-          });
-
-          patientMarker = new googleMaps.Marker({
-            position: patientPos,
-            map: mapInstance,
-            title: bookingData.patientName,
-            icon: {
-              url: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-              scaledSize: new googleMaps.Size(35, 35)
-            }
-          });
-
-          routeLine = new googleMaps.Polyline({
-            path: [clinicPos, patientPos],
-            geodesic: true,
-            strokeColor: '#00A556',
-            strokeOpacity: 0.8,
-            strokeWeight: 4,
-            map: mapInstance
-          });
-
-          const bounds = new googleMaps.LatLngBounds();
-          bounds.extend(clinicPos);
-          bounds.extend(patientPos);
-          mapInstance.fitBounds(bounds);
-        } else {
-          patientMarker.setPosition(patientPos);
-          clinicMarker.setPosition(clinicPos);
-          routeLine.setPath([clinicPos, patientPos]);
-          
-          const bounds = new googleMaps.LatLngBounds();
-          bounds.extend(clinicPos);
-          bounds.extend(patientPos);
-          mapInstance.fitBounds(bounds);
+        if (isDifferent) {
+          let url = '';
+          if (hasPatientLocation) {
+            // Displays a live route directions map between starting address (patient) and destination (clinic)
+            url = `https://maps.google.com/maps?saddr=${patientLat},${patientLng}&daddr=${clinicLat},${clinicLng}&t=&z=14&ie=UTF8&iwloc=B&output=embed`;
+          } else {
+            // Displays the clinic location with a marker
+            url = `https://maps.google.com/maps?q=${clinicLat},${clinicLng}&t=&z=14&ie=UTF8&iwloc=B&output=embed`;
+          }
+          setIframeUrl(url);
+          lastCoords = { lat: finalPatientLat, lng: finalPatientLng, active: hasPatientLocation };
         }
       } catch (err) {
         console.error("Telemetry fetch error:", err);
       }
     };
 
-    loadGoogleMaps().then((googleMaps) => {
-      updateMapAndTelemetry(googleMaps);
-      intervalId = setInterval(() => updateMapAndTelemetry(googleMaps), 4000);
-    }).catch(err => console.error("Google maps script load failed", err));
+    updateMapAndTelemetry();
+    intervalId = setInterval(updateMapAndTelemetry, 4000);
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [trackingModal]);
+
+  const startLocationSimulation = async (booking) => {
+    if (simulationActive) return;
+    setSimulationActive(true);
+    
+    try {
+      const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${booking._id}`);
+      const clinicCoords = res.data.clinicId?.location?.coordinates || [79.9864, 23.1815]; // [lng, lat]
+      const clinicLat = clinicCoords[1];
+      const clinicLng = clinicCoords[0];
+
+      // Starting point: ~1.2 km away
+      const startLat = clinicLat + 0.008;
+      const startLng = clinicLng + 0.008;
+      let step = 0;
+      const totalSteps = 15;
+
+      const simInterval = setInterval(async () => {
+        if (!localStorage.getItem('doctorSession')) { // if logged out or closed dashboard, stop
+          clearInterval(simInterval);
+          setSimulationActive(false);
+          return;
+        }
+
+        const currentLat = startLat - (step * (startLat - clinicLat) / totalSteps);
+        const currentLng = startLng - (step * (startLng - clinicLng) / totalSteps);
+
+        try {
+          await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/location/${booking._id}`, {
+            latitude: currentLat,
+            longitude: currentLng
+          });
+        } catch (err) {
+          console.error("Simulation upload error", err);
+        }
+
+        step++;
+        if (step > totalSteps) {
+          clearInterval(simInterval);
+          setSimulationActive(false);
+        }
+      }, 4000);
+    } catch (err) {
+      console.error("Simulation setup error", err);
+      setSimulationActive(false);
+    }
+  };
 
   const fetchQueue = async () => {
     if (!doctorProfile) return;
@@ -379,9 +370,28 @@ const DoctorDashboard = () => {
                 Tracking <strong>{trackingModal.booking.patientName}</strong> (Token: {trackingModal.booking.tokenNumber})
               </p>
               
-              <div id="patient-map-div" style={{ width: '100%', height: '280px', borderRadius: '16px', background: '#f8fafc', overflow: 'hidden', border: '1px solid var(--border)' }}></div>
+              {/* Map Iframe Container */}
+              <div style={{ width: '100%', height: '280px', borderRadius: '16px', background: '#f8fafc', overflow: 'hidden', border: '1px solid var(--border)', marginBottom: '16px' }}>
+                {iframeUrl ? (
+                  <iframe 
+                    width="100%" 
+                    height="100%" 
+                    frameBorder="0" 
+                    scrolling="no" 
+                    marginHeight="0" 
+                    marginWidth="0" 
+                    style={{ border: 0 }}
+                    src={iframeUrl}
+                    title="Live Patient Location Map"
+                  ></iframe>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: '0.9rem', fontWeight: 600 }}>
+                    ⏳ Initializing Google Map...
+                  </div>
+                )}
+              </div>
               
-              <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px', marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Estimated Distance</div>
                   <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text)' }}>{liveTelemetry?.distance || '--'} km</div>
@@ -392,9 +402,42 @@ const DoctorDashboard = () => {
                 </div>
               </div>
 
-              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', fontWeight: 700, color: liveTelemetry?.active ? 'var(--accent)' : 'var(--danger)' }}>
-                <span className="live-dot" style={{ background: liveTelemetry?.active ? 'var(--accent)' : 'var(--danger)', display: 'inline-block' }}></span>
-                {liveTelemetry?.active ? 'PATIENT TELEMETRY ACTIVE (LIVE)' : 'WAITING FOR PATIENT GPS SIGNAL...'}
+              {/* Zomato-Style Progress Bar */}
+              <div style={{ marginTop: '16px', background: '#f0fdf4', borderRadius: '12px', padding: '12px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 800 }}>
+                  <span style={{ color: 'var(--muted)' }}>Tracking Status:</span>
+                  <span style={{ color: 'var(--accent)' }}>
+                    {!liveTelemetry?.active ? 'WAITING FOR SIGNAL' : 
+                     parseFloat(liveTelemetry?.distance) < 0.1 ? 'ARRIVED AT CLINIC' : 
+                     parseFloat(liveTelemetry?.distance) < 0.5 ? 'ARRIVING SOON' : 'EN ROUTE'}
+                  </span>
+                </div>
+                <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ 
+                    height: '100%', 
+                    background: 'var(--accent)', 
+                    width: !liveTelemetry?.active ? '25%' : 
+                           parseFloat(liveTelemetry?.distance) < 0.1 ? '100%' : 
+                           parseFloat(liveTelemetry?.distance) < 0.5 ? '75%' : '50%',
+                    transition: 'width 0.5s ease-in-out'
+                  }}></div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', fontWeight: 700, color: liveTelemetry?.active ? 'var(--accent)' : 'var(--danger)' }}>
+                  <span className="live-dot" style={{ background: liveTelemetry?.active ? 'var(--accent)' : 'var(--danger)', display: 'inline-block' }}></span>
+                  {liveTelemetry?.active ? 'GPS SIGNAL STABLE' : 'WAITING FOR SIGNAL...'}
+                </div>
+                
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '6px 12px', fontSize: '0.75rem', minWidth: 'auto', background: simulationActive ? '#fef3c7' : '#f1f5f9', color: simulationActive ? '#d97706' : '#475569', borderColor: simulationActive ? '#fcd34d' : '#cbd5e1' }}
+                  onClick={() => startLocationSimulation(trackingModal.booking)}
+                  disabled={simulationActive}
+                >
+                  {simulationActive ? '🛵 Simulating...' : '🛵 Simulate Movement'}
+                </button>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
