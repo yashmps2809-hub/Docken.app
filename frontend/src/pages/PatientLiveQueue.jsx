@@ -52,15 +52,12 @@ const PatientLiveQueue = () => {
 
       // 2. Fetch and upload live location coordinates
       try {
-        const permissions = await Geolocation.checkPermissions();
-        if (permissions.location === 'granted') {
-          const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-          const { latitude, longitude } = position.coords;
-          await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/location/${booking._id}`, {
-            latitude,
-            longitude
-          });
-        }
+        const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+        const { latitude, longitude } = position.coords;
+        await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/location/${booking._id}`, {
+          latitude,
+          longitude
+        });
       } catch (locErr) {
         console.warn("Telemetry location error:", locErr.message);
       }
@@ -101,7 +98,7 @@ const PatientLiveQueue = () => {
   const currentToken = queue.length > 0 && queue[0].status === 'current' ? queue[0].tokenNumber : (queue.length > 0 ? queue[0].tokenNumber : '--');
   const myPos = getMyPosition();
   const ahead = myPos > 0 ? myPos : 0;
-  const eta = (ahead * 6) + (stats?.delayedByMins || 0);
+  const eta = (ahead * 15) + (stats?.delayedByMins || 0);
 
   const handleCancel = async () => {
     if (window.confirm("Are you sure you want to cancel your appointment?")) {
@@ -160,7 +157,7 @@ const PatientLiveQueue = () => {
                 <div key={b._id} className={`queue-row ${isCurrent ? 'current' : ''} ${isMe ? 'mine' : ''}`}>
                   <div>
                     <div className="q-token">{b.tokenNumber} {isMe && '← YOU'}</div>
-                    <div className="q-eta">{isCurrent ? 'In Consultation' : `~${index * 6} min wait`}</div>
+                    <div className="q-eta">{isCurrent ? 'In Consultation' : `~${index * 15} min wait`}</div>
                   </div>
                   <span className={`q-badge ${badgeClass}`}>{badgeText}</span>
                 </div>

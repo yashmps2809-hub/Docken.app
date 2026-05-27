@@ -98,7 +98,7 @@ router.get('/stats/:clinicId/:doctorName', async (req, res) => {
     res.json({ 
       totalToday,
       totalPatientsSeen: doctor ? doctor.totalPatientsSeen : 0,
-      averageWaitTime: doctor ? doctor.averageWaitTime : 5,
+      averageWaitTime: doctor ? doctor.averageWaitTime : 15,
       rating: doctor ? doctor.rating : 4.8,
       delayedByMins: doctor ? doctor.delayedByMins : 0
     });

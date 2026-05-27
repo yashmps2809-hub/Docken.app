@@ -9,7 +9,7 @@ const doctorSchema = new mongoose.Schema({
   clinicId: { type: mongoose.Schema.Types.ObjectId, ref: 'Clinic', required: true },
   isLive: { type: Boolean, default: false },
   rating: { type: Number, default: 4.8 },
-  averageWaitTime: { type: Number, default: 5 }, // in minutes
+  averageWaitTime: { type: Number, default: 15 }, // in minutes
   totalPatientsSeen: { type: Number, default: 0 },
   delayedByMins: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }

@@ -27,7 +27,7 @@ const DoctorDashboard = () => {
 
   const [todayTotal, setTodayTotal] = useState(0);
   const [totalSeen, setTotalSeen] = useState(0);
-  const [avgWait, setAvgWait] = useState(5);
+  const [avgWait, setAvgWait] = useState(15);
   const [rating, setRating] = useState(4.8);
 
   const [prescriptionModal, setPrescriptionModal] = useState({ show: false, bookingId: null, text: '' });
