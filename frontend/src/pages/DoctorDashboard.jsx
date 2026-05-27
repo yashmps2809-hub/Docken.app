@@ -54,22 +54,31 @@ const DoctorDashboard = () => {
       return R * c;
     };
 
-    const loadLeaflet = () => {
-      if (window.L) return Promise.resolve(window.L);
-      return new Promise((resolve) => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
+    const loadGoogleMaps = () => {
+      if (window.google && window.google.maps) return Promise.resolve(window.google.maps);
+      return new Promise((resolve, reject) => {
+        const existing = document.getElementById('google-maps-script');
+        if (existing) {
+          const checkGoogle = setInterval(() => {
+            if (window.google && window.google.maps) {
+              clearInterval(checkGoogle);
+              resolve(window.google.maps);
+            }
+          }, 100);
+          return;
+        }
 
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
         const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.onload = () => resolve(window.L);
+        script.id = 'google-maps-script';
+        script.src = `https://maps.googleapis.com/maps/api/js${apiKey ? `?key=${apiKey}` : ''}`; // dynamically loaded Google Maps SDK
+        script.onload = () => resolve(window.google.maps);
+        script.onerror = (err) => reject(err);
         document.head.appendChild(script);
       });
     };
 
-    const updateMapAndTelemetry = async (L) => {
+    const updateMapAndTelemetry = async (googleMaps) => {
       try {
         const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${trackingModal.booking._id}?t=${Date.now()}`);
         const bookingData = res.data;
@@ -94,61 +103,75 @@ const DoctorDashboard = () => {
           active: !!(bookingData.patientLatitude && bookingData.patientLongitude)
         });
 
+        const clinicPos = { lat: clinicLat, lng: clinicLng };
+        const patientPos = { lat: patientLat, lng: patientLng };
+
         if (!mapInstance) {
-          mapInstance = L.map('patient-map-div').setView([patientLat, patientLng], 14);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-          }).addTo(mapInstance);
-
-          const clinicIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/619/619054.png',
-            iconSize: [35, 35],
-            iconAnchor: [17, 35]
+          const mapEl = document.getElementById('patient-map-div');
+          if (!mapEl) return;
+          mapInstance = new googleMaps.Map(mapEl, {
+            center: patientPos,
+            zoom: 14,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false
           });
 
-          const patientIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-            iconSize: [35, 35],
-            iconAnchor: [17, 35]
-          });
-
-          clinicMarker = L.marker([clinicLat, clinicLng], { icon: clinicIcon }).addTo(mapInstance)
-            .bindPopup("🏥 <strong>Clinic Location</strong>");
-          
-          patientMarker = L.marker([patientLat, patientLng], { icon: patientIcon }).addTo(mapInstance)
-            .bindPopup(`👤 <strong>Patient:</strong> ${bookingData.patientName}`);
-
-          routeLine = L.polyline([[clinicLat, clinicLng], [patientLat, patientLng]], {
-            color: '#00A556',
-            weight: 4,
-            dashArray: '5, 10'
-          }).addTo(mapInstance);
-
-          setTimeout(() => {
-            if (mapInstance) {
-              mapInstance.invalidateSize();
-              mapInstance.fitBounds([[clinicLat, clinicLng], [patientLat, patientLng]], { padding: [40, 40] });
+          clinicMarker = new googleMaps.Marker({
+            position: clinicPos,
+            map: mapInstance,
+            title: "Clinic Location",
+            icon: {
+              url: 'https://cdn-icons-png.flaticon.com/512/619/619054.png',
+              scaledSize: new googleMaps.Size(35, 35)
             }
-          }, 350);
+          });
+
+          patientMarker = new googleMaps.Marker({
+            position: patientPos,
+            map: mapInstance,
+            title: bookingData.patientName,
+            icon: {
+              url: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+              scaledSize: new googleMaps.Size(35, 35)
+            }
+          });
+
+          routeLine = new googleMaps.Polyline({
+            path: [clinicPos, patientPos],
+            geodesic: true,
+            strokeColor: '#00A556',
+            strokeOpacity: 0.8,
+            strokeWeight: 4,
+            map: mapInstance
+          });
+
+          const bounds = new googleMaps.LatLngBounds();
+          bounds.extend(clinicPos);
+          bounds.extend(patientPos);
+          mapInstance.fitBounds(bounds);
         } else {
-          patientMarker.setLatLng([patientLat, patientLng]);
-          clinicMarker.setLatLng([clinicLat, clinicLng]);
-          routeLine.setLatLngs([[clinicLat, clinicLng], [patientLat, patientLng]]);
-          mapInstance.fitBounds([[clinicLat, clinicLng], [patientLat, patientLng]], { padding: [40, 40] });
+          patientMarker.setPosition(patientPos);
+          clinicMarker.setPosition(clinicPos);
+          routeLine.setPath([clinicPos, patientPos]);
+          
+          const bounds = new googleMaps.LatLngBounds();
+          bounds.extend(clinicPos);
+          bounds.extend(patientPos);
+          mapInstance.fitBounds(bounds);
         }
       } catch (err) {
         console.error("Telemetry fetch error:", err);
       }
     };
 
-    loadLeaflet().then((L) => {
-      updateMapAndTelemetry(L);
-      intervalId = setInterval(() => updateMapAndTelemetry(L), 4000);
-    });
+    loadGoogleMaps().then((googleMaps) => {
+      updateMapAndTelemetry(googleMaps);
+      intervalId = setInterval(() => updateMapAndTelemetry(googleMaps), 4000);
+    }).catch(err => console.error("Google maps script load failed", err));
 
     return () => {
       if (intervalId) clearInterval(intervalId);
-      if (mapInstance) mapInstance.remove();
     };
   }, [trackingModal]);
 
