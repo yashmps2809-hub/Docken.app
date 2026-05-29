@@ -42,6 +42,16 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'active', message: 'DOCKEN API is running' });
 });
 
+// Diagnostic check for database connection
+app.get('/api/diagnostic', (req, res) => {
+  res.json({
+    readyState: mongoose.connection.readyState,
+    readyStateText: mongoose.connection.readyState === 1 ? 'Connected' : 'Not Connected',
+    hasMongodbUri: !!process.env.MONGODB_URI,
+    mongodbUriStart: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 15) : 'none'
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
