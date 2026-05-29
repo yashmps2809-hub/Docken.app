@@ -58,7 +58,21 @@ const PatientLiveQueue = () => {
             console.warn("watchPosition error:", err.message);
             return;
           }
-          if (!position) return;
+          if (!position || !position.coords) return;
+
+          // GPS jitter filter
+          const accuracy = position.coords.accuracy;
+          const speed = position.coords.speed; // speed in m/s
+          const speedKmH = speed ? speed * 3.6 : 0;
+
+          if (accuracy && accuracy > 40) {
+            console.warn("Patient GPS update ignored: accuracy exceeds 40m limit", accuracy);
+            return;
+          }
+          if (speedKmH > 120) {
+            console.warn("Patient GPS update ignored: speed exceeds 120km/h limit", speedKmH);
+            return;
+          }
 
           const { latitude, longitude } = position.coords;
           const now = Date.now();

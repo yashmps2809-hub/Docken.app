@@ -96,12 +96,21 @@ const DoctorDashboard = () => {
         const dist = calculateDistance(finalPatientLat, finalPatientLng, clinicLat, clinicLng);
         const etaVal = Math.max(1, Math.round((dist / 30) * 60)); // assume 30 km/h driving speed
 
+        const initialDistance = typeof bookingData.initialDistance === 'number' ? bookingData.initialDistance : (bookingData.distance || dist);
+        const remainingDistance = dist;
+        const distanceCovered = Math.max(0, initialDistance - remainingDistance);
+        const progressPercent = initialDistance > 0 ? (distanceCovered / initialDistance) * 100 : 0;
+        const clampedProgressPercent = Math.min(100, Math.max(0, progressPercent));
+
         setLiveTelemetry({
           patientLat: finalPatientLat,
           patientLng: finalPatientLng,
           clinicLat,
           clinicLng,
           distance: dist.toFixed(2),
+          initialDistance: initialDistance.toFixed(2),
+          distanceCovered: distanceCovered.toFixed(2),
+          progressPercent: clampedProgressPercent.toFixed(0),
           eta: etaVal,
           active: hasPatientLocation
         });
@@ -230,7 +239,21 @@ const DoctorDashboard = () => {
               console.warn("watchPosition error:", err.message);
               return;
             }
-            if (!position) return;
+            if (!position || !position.coords) return;
+
+            // GPS jitter filter
+            const accuracy = position.coords.accuracy;
+            const speed = position.coords.speed; // speed in m/s
+            const speedKmH = speed ? speed * 3.6 : 0;
+
+            if (accuracy && accuracy > 40) {
+              console.warn("Doctor GPS update ignored: accuracy exceeds 40m limit", accuracy);
+              return;
+            }
+            if (speedKmH > 120) {
+              console.warn("Doctor GPS update ignored: speed exceeds 120km/h limit", speedKmH);
+              return;
+            }
 
             if (simDoctorActiveRef.current) return;
 
@@ -597,18 +620,30 @@ const DoctorDashboard = () => {
                   </div>
                 )}
               </div>
-              
-              <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Estimated Distance</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text)' }}>{liveTelemetry?.distance || '--'} km</div>
+              <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px', marginBottom: '16px' }}>
+                {/* 3-Column Stats Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', textAlign: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Distance</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text)', marginTop: '4px' }}>{liveTelemetry?.initialDistance || '--'} km</div>
+                  </div>
+                  <div style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Covered</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--accent)', marginTop: '4px' }}>{liveTelemetry?.distanceCovered || '0.00'} km</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Remaining</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text)', marginTop: '4px' }}>{liveTelemetry?.distance || '--'} km</div>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>ETA to Clinic</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--accent)' }}>~{liveTelemetry?.eta || '--'} mins</div>
+                
+                {/* ETA display */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>ETA to Clinic</span>
+                  <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--accent)' }}>~{liveTelemetry?.eta || '--'} mins</span>
                 </div>
               </div>
-
+              
               {/* Zomato-Style Progress Bar */}
               <div style={{ marginTop: '16px', background: '#f0fdf4', borderRadius: '12px', padding: '12px', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 800 }}>
@@ -616,16 +651,14 @@ const DoctorDashboard = () => {
                   <span style={{ color: 'var(--accent)' }}>
                     {!liveTelemetry?.active ? 'WAITING FOR SIGNAL' : 
                      parseFloat(liveTelemetry?.distance) < 0.1 ? 'ARRIVED AT CLINIC' : 
-                     parseFloat(liveTelemetry?.distance) < 0.5 ? 'ARRIVING SOON' : 'EN ROUTE'}
+                     parseFloat(liveTelemetry?.distance) < 0.5 ? 'ARRIVING SOON' : `EN ROUTE (${liveTelemetry?.progressPercent || 0}%)`}
                   </span>
                 </div>
                 <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
                   <div style={{ 
                     height: '100%', 
                     background: 'var(--accent)', 
-                    width: !liveTelemetry?.active ? '25%' : 
-                           parseFloat(liveTelemetry?.distance) < 0.1 ? '100%' : 
-                           parseFloat(liveTelemetry?.distance) < 0.5 ? '75%' : '50%',
+                    width: !liveTelemetry?.active ? '0%' : `${liveTelemetry?.progressPercent || 0}%`,
                     transition: 'width 0.5s ease-in-out'
                   }}></div>
                 </div>

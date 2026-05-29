@@ -6,11 +6,12 @@ const bookingSchema = new mongoose.Schema({
   clinicId: { type: mongoose.Schema.Types.ObjectId, ref: 'Clinic', required: true },
   doctorName: { type: String, required: true },
   tokenNumber: { type: String, required: true },
-  distance: { type: String },
+  distance: { type: Number },
+  initialDistance: { type: Number },
   fcmToken: { type: String, default: '' },
   status: { 
     type: String, 
-    enum: ['waiting', 'current', 'completed', 'cancelled'], 
+    enum: ['waiting', 'current', 'completed', 'cancelled', 'skipped'], 
     default: 'waiting' 
   },
   prescription: { type: String, default: '' },

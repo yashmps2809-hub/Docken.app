@@ -47,11 +47,49 @@ const HardwareBackButtonHandler = () => {
 // The native Firebase SDK crashes if google-services.json is missing.
 
 function App() {
+  const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
+      {isOffline && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          background: '#ef4444',
+          color: 'white',
+          padding: '10px 15px',
+          textAlign: 'center',
+          fontSize: '0.85rem',
+          fontWeight: 800,
+          zIndex: 99999,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          letterSpacing: '0.05em'
+        }}>
+          <span style={{ fontSize: '1.1rem' }}>⚠️</span> CONNECTION LOST. LIVE QUEUE UPDATES ARE TEMPORARILY PAUSED.
+        </div>
+      )}
       <HardwareBackButtonHandler />
       <Navbar />
-      <div className="main-content">
+      <div className="main-content" style={{ marginTop: isOffline ? '42px' : '0px', transition: 'margin-top 0.3s ease' }}>
         <Routes>
           <Route path="/" element={<Home />} />
         

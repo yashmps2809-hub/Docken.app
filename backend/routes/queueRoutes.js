@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
+const Counter = require('../models/Counter');
 const admin = require('firebase-admin');
 
 // Helper to safely send push notifications
@@ -23,23 +24,24 @@ router.post('/book', async (req, res) => {
   try {
     const { patientName, patientPhone, clinicId, doctorName, distance } = req.body;
 
-    // Generate unique token numbers by counting all bookings created today for this doctor and clinic
-    const todayStart = new Date();
-    todayStart.setHours(0,0,0,0);
-    const count = await Booking.countDocuments({ 
-      clinicId, 
-      doctorName, 
-      createdAt: { $gte: todayStart } 
-    });
-    const tokenNumber = `T-${(count + 1).toString().padStart(2, '0')}`;
+    // Generate unique token numbers atomically using Counter collection
+    const todayStr = new Date().toISOString().split('T')[0];
+    const counter = await Counter.findOneAndUpdate(
+      { clinicId, doctorName, date: todayStr },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    const tokenNumber = `T-${counter.seq.toString().padStart(2, '0')}`;
     
+    const parsedDistance = distance ? parseFloat(distance) : null;
     const newBooking = new Booking({
       patientName,
       patientPhone,
       clinicId,
       doctorName,
       tokenNumber,
-      distance,
+      distance: parsedDistance,
+      initialDistance: parsedDistance,
       fcmToken: req.body.fcmToken || '',
       status: 'waiting' // ALWAYS START AS WAITING to prevent race conditions
     });
