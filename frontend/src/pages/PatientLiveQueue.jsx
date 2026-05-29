@@ -26,58 +26,105 @@ const PatientLiveQueue = () => {
       return;
     }
 
-    // Request permissions once on mount
+    let watchId = null;
+    let lastUploadedCoords = null;
+    let lastUploadTime = 0;
+
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371; // km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
+    // Request permissions and start watching location
     (async () => {
       try {
         const permissions = await Geolocation.checkPermissions();
         if (permissions.location !== 'granted') {
           await Geolocation.requestPermissions();
         }
+        
+        watchId = await Geolocation.watchPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000
+        }, async (position, err) => {
+          if (err) {
+            console.warn("watchPosition error:", err.message);
+            return;
+          }
+          if (!position) return;
+
+          const { latitude, longitude } = position.coords;
+          const now = Date.now();
+
+          // Throttling: upload location at most once every 10 seconds OR if patient moves >15 meters
+          const timePassed = now - lastUploadTime > 10000;
+          let movedNoticeably = true;
+          if (lastUploadedCoords) {
+            const dist = calculateDistance(latitude, longitude, lastUploadedCoords.lat, lastUploadedCoords.lng);
+            movedNoticeably = dist > 0.015; // 15 meters
+          }
+
+          if (timePassed || movedNoticeably) {
+            try {
+              const locRes = await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/location/${booking._id}`, {
+                latitude,
+                longitude
+              });
+              if (locRes.data) {
+                setLiveBooking(locRes.data);
+              }
+              lastUploadedCoords = { lat: latitude, lng: longitude };
+              lastUploadTime = now;
+            } catch (locErr) {
+              console.warn("Telemetry location upload error:", locErr.message);
+            }
+          }
+        });
       } catch (err) {
-        console.warn("Location permission check failed", err);
+        console.warn("Geolocation watch initialization failed", err);
       }
     })();
 
     pollQueue();
-    const interval = setInterval(pollQueue, 5000);
-    return () => clearInterval(interval);
+    // Reduce polling frequency to 7 seconds to conserve network resources and battery
+    const interval = setInterval(pollQueue, 7000);
+    
+    return () => {
+      if (watchId) Geolocation.clearWatch({ id: watchId });
+      clearInterval(interval);
+    };
   }, [booking, clinicId, navigate]);
 
   const pollQueue = async () => {
     try {
-      // 1. Fetch Live Queue & Stats
-      const qRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/${clinicId}/${doctorName}?t=${Date.now()}`);
+      // Fetch Live Queue & Stats in parallel via Promise.all to avoid HTTP waterfalls
+      const [qRes, statsRes] = await Promise.all([
+        axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/${clinicId}/${doctorName}?t=${Date.now()}`),
+        axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/stats/${clinicId}/${doctorName}?t=${Date.now()}`)
+      ]);
+
       setQueue(qRes.data);
-      const statsRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/stats/${clinicId}/${doctorName}?t=${Date.now()}`);
       setStats(statsRes.data);
 
-      try {
-        const bRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${booking._id}?t=${Date.now()}`);
-        if (bRes.data) {
-          setLiveBooking(bRes.data);
-        }
-      } catch (bErr) {
-        console.warn("Error fetching live booking info:", bErr.message);
+      // Find our booking in the list to retrieve the latest live data from backend calculations (avoiding a separate API call)
+      const myBooking = qRes.data.find(b => b.tokenNumber === booking.tokenNumber);
+      if (myBooking) {
+        setLiveBooking(myBooking);
       }
 
-      // 2. Fetch and upload live location coordinates
-      try {
-        const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-        const { latitude, longitude } = position.coords;
-        await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/location/${booking._id}`, {
-          latitude,
-          longitude
-        });
-      } catch (locErr) {
-        console.warn("Telemetry location error:", locErr.message);
-      }
-      
-      // If we are no longer in the queue (completed/cancelled), show result
+      // If we are no longer in the queue (completed/cancelled), advance to dashboard
       const stillInQueue = qRes.data.some(b => b.tokenNumber === booking.tokenNumber);
       if (!stillInQueue) {
         localStorage.removeItem('activeBooking');
         
-        // Fetch our booking to check if it was completed (with prescription)
+        // Fetch history to see if completed with prescription
         try {
           const patientSession = JSON.parse(localStorage.getItem('patientSession') || '{}');
           const phone = patientSession.phone || patientSession.email;
@@ -85,7 +132,6 @@ const PatientLiveQueue = () => {
             const histRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/history/${phone}`);
             const myCompleted = histRes.data.find(b => b.tokenNumber === booking.tokenNumber && b.status === 'completed');
             if (myCompleted) {
-              // Store the completed consultation to show on dashboard
               localStorage.setItem('justCompleted', JSON.stringify(myCompleted));
               navigate('/patient/dashboard');
               return;

@@ -186,16 +186,21 @@ const DoctorDashboard = () => {
     if (!doctorProfile) return;
     try {
       const clinicId = typeof doctorProfile.clinicId === 'object' ? doctorProfile.clinicId._id : doctorProfile.clinicId;
-      const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/${clinicId}/${doctorProfile.name}?t=${Date.now()}`);
+      
+      // Fetch queue and stats in parallel to prevent HTTP waterfalls
+      const [res, statsRes] = await Promise.all([
+        axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/${clinicId}/${doctorProfile.name}?t=${Date.now()}`),
+        axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/stats/${clinicId}/${doctorProfile.name}?t=${Date.now()}`)
+      ]);
+      
       setQueue(res.data);
-
-      const statsRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/stats/${clinicId}/${doctorProfile.name}?t=${Date.now()}`);
-      setTodayTotal(statsRes.data.totalToday);
-      setTotalSeen(statsRes.data.totalPatientsSeen);
-      setAvgWait(statsRes.data.averageWaitTime);
-      setRating(statsRes.data.rating);
+      const statsData = statsRes.data;
+      setTodayTotal(statsData.totalToday);
+      setTotalSeen(statsData.totalPatientsSeen);
+      setAvgWait(statsData.averageWaitTime);
+      setRating(statsData.rating);
     } catch (err) {
-      console.error("Failed to fetch queue", err);
+      console.error("Failed to fetch doctor dashboard statistics", err);
     }
   };
 
