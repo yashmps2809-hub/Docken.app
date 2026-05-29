@@ -14,7 +14,7 @@ const DoctorDashboard = () => {
 
   const [queue, setQueue] = useState([]);
   const [isLive, setIsLive] = useState(doctorProfile ? doctorProfile.isLive : false);
-  const [isBreak, setIsBreak] = useState(false);
+  const [isBreak, setIsBreak] = useState(doctorProfile ? (doctorProfile.isBreak || false) : false);
 
   useEffect(() => {
     if (!doctorProfile) {
@@ -406,6 +406,21 @@ const DoctorDashboard = () => {
     }
   };
 
+  const toggleDoctorBreak = async () => {
+    if (!doctorProfile) return;
+    try {
+      const res = await axios.put(`https://backend-nine-kappa-32.vercel.app/api/doctors/${doctorProfile._id}/break`);
+      setIsBreak(res.data.isBreak);
+      
+      const updatedProfile = { ...doctorProfile, isBreak: res.data.isBreak };
+      setDoctorProfile(updatedProfile);
+      localStorage.setItem('doctorSession', JSON.stringify(updatedProfile));
+      alert(`Doctor is now ${res.data.isBreak ? 'ON BREAK' : 'ACTIVE'}`);
+    } catch (err) {
+      alert('Failed to toggle break state');
+    }
+  };
+
   const ToggleSwitch = ({ label, desc, active, onClick }) => (
     <div className="toggle-row">
       <div className="toggle-info">
@@ -453,7 +468,7 @@ const DoctorDashboard = () => {
           label="Take a Break" 
           desc="Pause — all patients auto notified" 
           active={isBreak} 
-          onClick={() => { setIsBreak(!isBreak); alert(`Break mode ${!isBreak ? 'ON' : 'OFF'}`); }} 
+          onClick={toggleDoctorBreak} 
         />
         <ToggleSwitch 
           label="Simulate Doctor Travel" 

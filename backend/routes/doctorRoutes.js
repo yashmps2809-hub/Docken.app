@@ -222,4 +222,23 @@ router.put('/:id/location', async (req, res) => {
   }
 });
 
+// @route   PUT /api/doctors/:id/break
+// @desc    Toggle a doctor's break status
+router.put('/:id/break', async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.params.id);
+    if (!doctor) {
+      return res.status(404).json({ error: 'Doctor not found' });
+    }
+
+    doctor.isBreak = !doctor.isBreak;
+    await doctor.save();
+
+    res.json(doctor);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 module.exports = router;

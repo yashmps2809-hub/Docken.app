@@ -8,6 +8,7 @@ const doctorSchema = new mongoose.Schema({
   specialty: { type: String, default: "General Physician" },
   clinicId: { type: mongoose.Schema.Types.ObjectId, ref: 'Clinic', required: true },
   isLive: { type: Boolean, default: false },
+  isBreak: { type: Boolean, default: false },
   rating: { type: Number, default: 4.8 },
   averageWaitTime: { type: Number, default: 15 }, // in minutes
   totalPatientsSeen: { type: Number, default: 0 },

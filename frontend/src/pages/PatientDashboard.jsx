@@ -198,9 +198,19 @@ const PatientDashboard = () => {
                   </div>
                 )}
               </div>
-              <div className="live-badge" style={{ transform: 'none' }}>
-                <div className="live-dot"></div> LIVE
-              </div>
+              {activeBooking.booking.doctorIsBreak ? (
+                <div className="live-badge" style={{ transform: 'none', background: '#fef3c7', color: '#d97706', borderColor: '#fcd34d' }}>
+                  <div className="live-dot" style={{ background: '#d97706' }}></div> ON BREAK
+                </div>
+              ) : (activeBooking.booking.doctorIsLive !== false) ? (
+                <div className="live-badge" style={{ transform: 'none' }}>
+                  <div className="live-dot"></div> LIVE
+                </div>
+              ) : (
+                <div className="live-badge" style={{ transform: 'none', background: '#f3f4f6', color: '#6b7280', borderColor: '#cbd5e1' }}>
+                  <div className="live-dot" style={{ background: '#6b7280' }}></div> OFFLINE
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button className="btn btn-primary ripple" style={{ flex: 1 }} onClick={handleResumeBooking}>🚀 Resume Queue</button>

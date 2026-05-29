@@ -297,12 +297,13 @@ router.put('/location/:bookingId', async (req, res) => {
     const queueWait = (ahead * 15) + delay;
     const estimatedWaitTime = Math.max(queueWait, travelTime + trafficDelay);
 
-    // Save back to db
+    // Save back to db (including updating distance to live computed distance)
     booking.patientLatitude = latitude;
     booking.patientLongitude = longitude;
     booking.travelTimeMins = travelTime;
     booking.trafficDelayMins = trafficDelay;
     booking.estimatedWaitTime = estimatedWaitTime;
+    booking.distance = parseFloat(dist.toFixed(2));
     await booking.save();
 
     res.json(booking);
@@ -343,6 +344,10 @@ router.get('/booking/:bookingId', async (req, res) => {
     
     const bookingObj = booking.toObject();
     bookingObj.estimatedWaitTime = Math.max(queueWait, travelTime + trafficDelay);
+    
+    // Attach live doctor status and break status
+    bookingObj.doctorIsLive = doctor ? doctor.isLive : false;
+    bookingObj.doctorIsBreak = doctor ? doctor.isBreak : false;
 
     res.json(bookingObj);
   } catch (err) {
