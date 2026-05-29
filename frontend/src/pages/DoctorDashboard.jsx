@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Geolocation } from '@capacitor/geolocation';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
@@ -35,6 +36,8 @@ const DoctorDashboard = () => {
   const [liveTelemetry, setLiveTelemetry] = useState(null);
   const [iframeUrl, setIframeUrl] = useState('');
   const [simulationActive, setSimulationActive] = useState(false);
+  const [simDoctorActive, setSimDoctorActive] = useState(false);
+  const simDoctorActiveRef = useRef(false);
 
   useEffect(() => {
     if (!trackingModal.show || !trackingModal.booking) {
@@ -182,6 +185,159 @@ const DoctorDashboard = () => {
     }
   };
 
+  useEffect(() => {
+    simDoctorActiveRef.current = simDoctorActive;
+  }, [simDoctorActive]);
+
+  useEffect(() => {
+    return () => {
+      simDoctorActiveRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!doctorProfile || !doctorProfile._id) return;
+
+    let watchId = null;
+    let lastUploadedCoords = null;
+    let lastUploadTime = 0;
+
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371; // km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
+    if (!simDoctorActive) {
+      (async () => {
+        try {
+          const permissions = await Geolocation.checkPermissions();
+          if (permissions.location !== 'granted') {
+            await Geolocation.requestPermissions();
+          }
+
+          watchId = await Geolocation.watchPosition({
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 10000
+          }, async (position, err) => {
+            if (err) {
+              console.warn("watchPosition error:", err.message);
+              return;
+            }
+            if (!position) return;
+
+            if (simDoctorActiveRef.current) return;
+
+            const { latitude, longitude } = position.coords;
+            const now = Date.now();
+
+            const timePassed = now - lastUploadTime > 10000;
+            let movedNoticeably = true;
+            if (lastUploadedCoords) {
+              const dist = calculateDistance(latitude, longitude, lastUploadedCoords.lat, lastUploadedCoords.lng);
+              movedNoticeably = dist > 0.015; // 15 meters
+            }
+
+            if (timePassed || movedNoticeably) {
+              try {
+                await axios.put(`https://backend-nine-kappa-32.vercel.app/api/doctors/${doctorProfile._id}/location`, {
+                  latitude,
+                  longitude
+                });
+                lastUploadedCoords = { lat: latitude, lng: longitude };
+                lastUploadTime = now;
+              } catch (locErr) {
+                console.warn("Doctor location upload error:", locErr.message);
+              }
+            }
+          });
+        } catch (err) {
+          console.warn("Geolocation watch initialization failed", err);
+        }
+      })();
+    }
+
+    return () => {
+      if (watchId) {
+        Geolocation.clearWatch({ id: watchId });
+      }
+    };
+  }, [doctorProfile, simDoctorActive]);
+
+  const toggleDoctorTravelSimulation = async () => {
+    if (simDoctorActive) {
+      setSimDoctorActive(false);
+      simDoctorActiveRef.current = false;
+      alert("Doctor travel simulation stopped.");
+      return;
+    }
+
+    setSimDoctorActive(true);
+    simDoctorActiveRef.current = true;
+    alert("Doctor travel simulation started (1.2km away from clinic).");
+
+    try {
+      const getClinicCoords = () => {
+        if (doctorProfile?.clinicId?.location?.coordinates) {
+          return doctorProfile.clinicId.location.coordinates;
+        }
+        const clinicName = doctorProfile?.clinicId?.name || '';
+        if (clinicName.toLowerCase().includes("city health")) {
+          return [79.9411, 23.1685];
+        }
+        return [79.9864, 23.1815];
+      };
+
+      const clinicCoords = getClinicCoords();
+      const clinicLat = clinicCoords[1];
+      const clinicLng = clinicCoords[0];
+
+      const startLat = clinicLat + 0.008;
+      const startLng = clinicLng + 0.008;
+      let step = 0;
+      const totalSteps = 15;
+
+      const simInterval = setInterval(async () => {
+        if (!localStorage.getItem('doctorSession') || !simDoctorActiveRef.current) {
+          clearInterval(simInterval);
+          setSimDoctorActive(false);
+          simDoctorActiveRef.current = false;
+          return;
+        }
+
+        const currentLat = startLat - (step * (startLat - clinicLat) / totalSteps);
+        const currentLng = startLng - (step * (startLng - clinicLng) / totalSteps);
+
+        try {
+          await axios.put(`https://backend-nine-kappa-32.vercel.app/api/doctors/${doctorProfile._id}/location`, {
+            latitude: currentLat,
+            longitude: currentLng
+          });
+        } catch (err) {
+          console.error("Doctor Simulation upload error", err);
+        }
+
+        step++;
+        if (step > totalSteps) {
+          clearInterval(simInterval);
+          setSimDoctorActive(false);
+          simDoctorActiveRef.current = false;
+          alert("Doctor has arrived at the clinic! Simulation finished.");
+        }
+      }, 4000);
+    } catch (err) {
+      console.error("Doctor Simulation setup error", err);
+      setSimDoctorActive(false);
+      simDoctorActiveRef.current = false;
+    }
+  };
+
   const fetchQueue = async () => {
     if (!doctorProfile) return;
     try {
@@ -289,6 +445,12 @@ const DoctorDashboard = () => {
           desc="Pause — all patients auto notified" 
           active={isBreak} 
           onClick={() => { setIsBreak(!isBreak); alert(`Break mode ${!isBreak ? 'ON' : 'OFF'}`); }} 
+        />
+        <ToggleSwitch 
+          label="Simulate Doctor Travel" 
+          desc="Simulate doctor's journey to clinic (updates ETA)" 
+          active={simDoctorActive} 
+          onClick={toggleDoctorTravelSimulation} 
         />
         <div className="toggle-row" style={{marginTop: '15px'}}>
           <div className="toggle-info">

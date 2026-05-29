@@ -177,4 +177,49 @@ router.put('/:doctorId/delay', async (req, res) => {
   }
 });
 
+// Helper to calculate distance in km
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+// @route   PUT /api/doctors/:id/location
+// @desc    Update doctor live location, calculate travel ETA to clinic, and set queue delays
+router.put('/:id/location', async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const doctor = await Doctor.findById(req.params.id).populate('clinicId');
+    if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
+
+    const clinicCoords = doctor.clinicId?.location?.coordinates || [79.9864, 23.1815]; // [lng, lat]
+    const clinicLat = clinicCoords[1];
+    const clinicLng = clinicCoords[0];
+
+    // Calculate distance and travel time
+    const dist = calculateDistance(latitude, longitude, clinicLat, clinicLng);
+    const travelTime = Math.round((dist / 25) * 60); // 25 km/h avg speed
+    const trafficDelay = Math.round(dist * 1.5); // 1.5 min delay/km
+
+    doctor.latitude = latitude;
+    doctor.longitude = longitude;
+    doctor.travelTimeMins = travelTime;
+    doctor.trafficDelayMins = trafficDelay;
+    
+    // If the doctor is > 100 meters away, set delay dynamically. If arrived, set delay to 0.
+    doctor.delayedByMins = dist > 0.1 ? (travelTime + trafficDelay) : 0;
+    
+    await doctor.save();
+    res.json(doctor);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 module.exports = router;

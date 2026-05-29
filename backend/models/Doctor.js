@@ -12,6 +12,10 @@ const doctorSchema = new mongoose.Schema({
   averageWaitTime: { type: Number, default: 15 }, // in minutes
   totalPatientsSeen: { type: Number, default: 0 },
   delayedByMins: { type: Number, default: 0 },
+  latitude: { type: Number },
+  longitude: { type: Number },
+  travelTimeMins: { type: Number, default: 0 },
+  trafficDelayMins: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 

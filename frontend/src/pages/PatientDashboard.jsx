@@ -81,6 +81,38 @@ const PatientDashboard = () => {
     })();
   }, [navigate]);
 
+  useEffect(() => {
+    if (!activeBooking?.booking?._id) return;
+    
+    const bookingId = activeBooking.booking._id;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${bookingId}?t=${Date.now()}`);
+        if (res.data) {
+          if (['completed', 'cancelled'].includes(res.data.status)) {
+            localStorage.removeItem('activeBooking');
+            setActiveBooking(null);
+          } else {
+            setActiveBooking(prev => {
+              if (!prev) return null;
+              const updated = {
+                ...prev,
+                booking: res.data
+              };
+              localStorage.setItem('activeBooking', JSON.stringify(updated));
+              return updated;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Error polling active booking:", err.message);
+      }
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [activeBooking?.booking?._id]);
+
   const handleCancelBooking = async () => {
     try {
       await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/cancel/${activeBooking.booking._id}`);
