@@ -37,7 +37,26 @@ const PatientDashboard = () => {
       // Check for active booking
       const savedBooking = localStorage.getItem('activeBooking');
       if (savedBooking) {
-        setActiveBooking(JSON.parse(savedBooking));
+        const parsed = JSON.parse(savedBooking);
+        try {
+          const liveRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${parsed.booking._id}?t=${Date.now()}`);
+          if (liveRes.data) {
+            const updatedState = {
+              ...parsed,
+              booking: liveRes.data
+            };
+            if (['completed', 'cancelled'].includes(liveRes.data.status)) {
+              localStorage.removeItem('activeBooking');
+              setActiveBooking(null);
+            } else {
+              localStorage.setItem('activeBooking', JSON.stringify(updatedState));
+              setActiveBooking(updatedState);
+            }
+          }
+        } catch (err) {
+          console.warn("Error verifying active booking:", err.message);
+          setActiveBooking(parsed);
+        }
       }
 
       // Check if user just finished a consultation (redirected from LiveQueue)
@@ -140,6 +159,12 @@ const PatientDashboard = () => {
                 <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>ACTIVE APPOINTMENT</div>
                 <h2 style={{ fontSize: '1.4rem', margin: '4px 0', color: 'var(--text)' }}>Dr. {activeBooking.doctorName}</h2>
                 <div style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.9rem' }}>Token: <span style={{ fontWeight: 900, color: 'var(--accent)', fontSize: '1.1rem' }}>{activeBooking.booking.tokenNumber}</span></div>
+                <div style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.85rem', marginTop: '6px' }}>Est. Wait: <span style={{ fontWeight: 900, color: 'var(--warn)', fontSize: '0.95rem' }}>~{activeBooking.booking.estimatedWaitTime || 15} mins</span></div>
+                {activeBooking.booking.travelTimeMins > 0 && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--muted)', fontWeight: 700, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    🚗 Travel: {activeBooking.booking.travelTimeMins} mins (inc. {activeBooking.booking.trafficDelayMins}m delay)
+                  </div>
+                )}
               </div>
               <div className="live-badge" style={{ transform: 'none' }}>
                 <div className="live-dot"></div> LIVE
