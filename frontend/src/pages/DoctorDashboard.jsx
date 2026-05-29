@@ -382,6 +382,15 @@ const DoctorDashboard = () => {
     }
   };
 
+  const handleSkip = async (bookingId) => {
+    try {
+      await axios.put(`https://backend-nine-kappa-32.vercel.app/api/queue/skip/${bookingId}`);
+      fetchQueue();
+    } catch (err) {
+      alert('Failed to skip patient');
+    }
+  };
+
   const toggleQueueLive = async () => {
     if (!doctorProfile) return;
     try {
@@ -507,7 +516,7 @@ const DoctorDashboard = () => {
                     {isCurrent ? (
                       <button className="btn btn-primary ripple" style={{padding: '7px 14px', fontSize: '0.75rem'}} onClick={() => handleOpenPrescription(b._id)}>Consultation Complete</button>
                     ) : (
-                      <button className="btn btn-ghost ripple" style={{padding: '7px 12px', fontSize: '0.75rem'}} onClick={() => alert(`Skipped ${b.tokenNumber}`)}>Skip</button>
+                      <button className="btn btn-ghost ripple" style={{padding: '7px 12px', fontSize: '0.75rem'}} onClick={() => handleSkip(b._id)}>Skip</button>
                     )}
                   </div>
                 </div>

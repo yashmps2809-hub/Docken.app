@@ -114,13 +114,13 @@ const PatientLiveQueue = () => {
       setStats(statsRes.data);
 
       // Find our booking in the list to retrieve the latest live data from backend calculations (avoiding a separate API call)
-      const myBooking = qRes.data.find(b => b.tokenNumber === booking.tokenNumber);
+      const myBooking = qRes.data.find(b => b._id === booking._id);
       if (myBooking) {
         setLiveBooking(myBooking);
       }
 
       // If we are no longer in the queue (completed/cancelled), advance to dashboard
-      const stillInQueue = qRes.data.some(b => b.tokenNumber === booking.tokenNumber);
+      const stillInQueue = qRes.data.some(b => b._id === booking._id);
       if (!stillInQueue) {
         localStorage.removeItem('activeBooking');
         
@@ -130,7 +130,7 @@ const PatientLiveQueue = () => {
           const phone = patientSession.phone || patientSession.email;
           if (phone) {
             const histRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/history/${phone}`);
-            const myCompleted = histRes.data.find(b => b.tokenNumber === booking.tokenNumber && b.status === 'completed');
+            const myCompleted = histRes.data.find(b => b._id === booking._id && b.status === 'completed');
             if (myCompleted) {
               localStorage.setItem('justCompleted', JSON.stringify(myCompleted));
               navigate('/patient/dashboard');
@@ -148,7 +148,7 @@ const PatientLiveQueue = () => {
 
   const getMyPosition = () => {
     if (!booking) return -1;
-    return queue.findIndex(b => b.tokenNumber === booking.tokenNumber);
+    return queue.findIndex(b => b._id === booking._id);
   };
 
   const currentToken = queue.length > 0 && queue[0].status === 'current' ? queue[0].tokenNumber : (queue.length > 0 ? queue[0].tokenNumber : '--');
@@ -219,7 +219,7 @@ const PatientLiveQueue = () => {
           
           <div className="queue-list stagger-in">
             {queue.map((b, index) => {
-              const isMe = b.tokenNumber === booking.tokenNumber;
+              const isMe = b._id === booking._id;
               const isCurrent = b.status === 'current';
               
               let badgeClass = 'badge-muted';

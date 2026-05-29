@@ -23,8 +23,14 @@ router.post('/book', async (req, res) => {
   try {
     const { patientName, patientPhone, clinicId, doctorName, distance } = req.body;
 
-    // Generate a simple token number (e.g. T-12)
-    const count = await Booking.countDocuments({ clinicId, doctorName, status: { $in: ['waiting', 'current'] } });
+    // Generate unique token numbers by counting all bookings created today for this doctor and clinic
+    const todayStart = new Date();
+    todayStart.setHours(0,0,0,0);
+    const count = await Booking.countDocuments({ 
+      clinicId, 
+      doctorName, 
+      createdAt: { $gte: todayStart } 
+    });
     const tokenNumber = `T-${(count + 1).toString().padStart(2, '0')}`;
     
     const newBooking = new Booking({
@@ -72,7 +78,26 @@ router.get('/:clinicId/:doctorName', async (req, res) => {
       status: { $in: ['waiting', 'current'] } 
     }).sort({ createdAt: 1 });
 
-    res.json(queue);
+    // Fetch the doctor's delay
+    const Doctor = require('../models/Doctor');
+    const doctor = await Doctor.findOne({ name: doctorName, clinicId });
+    const delay = doctor ? doctor.delayedByMins : 0;
+
+    // Dynamically calculate estimatedWaitTime for each patient in the active queue
+    const updatedQueue = queue.map((booking, index) => {
+      const clinicObj = booking.toObject();
+      const ahead = index; 
+
+      const travelTime = clinicObj.travelTimeMins || 0;
+      const trafficDelay = clinicObj.trafficDelayMins || 0;
+
+      const queueWait = (ahead * 15) + delay;
+      clinicObj.estimatedWaitTime = Math.max(queueWait, travelTime + trafficDelay);
+      
+      return clinicObj;
+    });
+
+    res.json(updatedQueue);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server Error' });
@@ -293,6 +318,67 @@ router.get('/booking/:bookingId', async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId).populate('clinicId');
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    if (['completed', 'cancelled', 'skipped'].includes(booking.status)) {
+      return res.json(booking);
+    }
+
+    // Calculate patients waiting ahead
+    const ahead = await Booking.countDocuments({
+      clinicId: booking.clinicId?._id || booking.clinicId,
+      doctorName: booking.doctorName,
+      status: 'waiting',
+      createdAt: { $lt: booking.createdAt }
+    });
+
+    // Get doctor's delayed notice
+    const Doctor = require('../models/Doctor');
+    const doctor = await Doctor.findOne({ name: booking.doctorName, clinicId: booking.clinicId?._id || booking.clinicId });
+    const delay = doctor ? doctor.delayedByMins : 0;
+
+    const travelTime = booking.travelTimeMins || 0;
+    const trafficDelay = booking.trafficDelayMins || 0;
+
+    const queueWait = (ahead * 15) + delay;
+    
+    const bookingObj = booking.toObject();
+    bookingObj.estimatedWaitTime = Math.max(queueWait, travelTime + trafficDelay);
+
+    res.json(bookingObj);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+// @route   PUT /api/queue/skip/:bookingId
+// @desc    Skip a patient (marks status as skipped and advances queue)
+router.put('/skip/:bookingId', async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId);
+    if (!booking) return res.status(404).json({ error: 'Not found' });
+
+    const wasCurrent = booking.status === 'current';
+    booking.status = 'skipped';
+    await booking.save();
+
+    // If skipped patient was 'current', promote the next waiting patient
+    if (wasCurrent) {
+      const nextBooking = await Booking.findOneAndUpdate(
+        { clinicId: booking.clinicId, doctorName: booking.doctorName, status: 'waiting' },
+        { status: 'current' },
+        { sort: { createdAt: 1 }, new: true }
+      );
+
+      if (nextBooking && nextBooking.fcmToken) {
+        sendPushNotification(
+          nextBooking.fcmToken, 
+          "It's Your Turn! 🏥", 
+          `Please proceed to the doctor's cabin. Your token is ${nextBooking.tokenNumber}.`
+        );
+      }
+    }
+
     res.json(booking);
   } catch (err) {
     console.error(err);
