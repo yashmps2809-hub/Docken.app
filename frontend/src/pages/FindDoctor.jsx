@@ -30,41 +30,56 @@ const FindDoctor = () => {
   const fetchLocationAndClinics = async () => {
     setLoading(true);
     
+    // Default Jabalpur coordinates
+    const fallbackLat = 23.1815;
+    const fallbackLng = 79.9864;
+
+    const fetchClinics = async (lat, lng) => {
+      try {
+        let res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/clinics/nearby?lat=${lat}&lng=${lng}&radius=15`);
+        if (res.data.length === 0) {
+          res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/clinics/nearby?lat=${lat}&lng=${lng}&radius=5000`);
+        }
+        setClinics(res.data);
+      } catch (error) {
+        console.error("Error fetching clinics from API", error);
+        // If API fails, try to fetch all with default Jabalpur coordinates
+        if (lat !== fallbackLat || lng !== fallbackLng) {
+          await fetchClinics(fallbackLat, fallbackLng);
+        }
+      }
+    };
+
     try {
       const permissions = await Geolocation.checkPermissions();
       if (permissions.location !== 'granted') {
         const req = await Geolocation.requestPermissions();
         if (req.location !== 'granted') {
-          alert('Location permission is required to find nearby clinics.');
+          console.warn("Location permission denied, using Jabalpur fallback");
+          setUserLocation({ lat: fallbackLat, lng: fallbackLng });
+          setMapSrc(`https://maps.google.com/maps?width=100%25&height=600&hl=en&q=${fallbackLat},${fallbackLng}+(Apollo%20Clinic)&t=&z=14&ie=UTF8&iwloc=B&output=embed`);
+          await fetchClinics(fallbackLat, fallbackLng);
           setLoading(false);
           return;
         }
       }
 
-      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+      // Set a reasonable timeout and fallback if GPS is weak
+      const position = await Geolocation.getCurrentPosition({ 
+        enableHighAccuracy: false, 
+        timeout: 6000 
+      });
+      
       const { latitude, longitude } = position.coords;
       setUserLocation({ lat: latitude, lng: longitude });
-      // Update Map
       setMapSrc(`https://maps.google.com/maps?width=100%25&height=600&hl=en&q=${latitude},${longitude}+(Your%20Location)&t=&z=14&ie=UTF8&iwloc=B&output=embed`);
-      
-      try {
-        // Fetch from MongoDB (try 15km radius first)
-        let res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/clinics/nearby?lat=${latitude}&lng=${longitude}&radius=15`);
-        
-        // Fallback: If no clinics in 15km, fetch with a huge radius (e.g. 5000km) to show ALL available clinics in DB
-        if (res.data.length === 0) {
-          res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/clinics/nearby?lat=${latitude}&lng=${longitude}&radius=5000`);
-        }
-        
-        setClinics(res.data);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching clinics from Node API", error);
-        setLoading(false);
-      }
+      await fetchClinics(latitude, longitude);
     } catch (error) {
-      console.error("Geolocation error", error);
-      alert('Please allow location access or ensure GPS is turned on.');
+      console.warn("Geolocation failed, using Jabalpur fallback:", error);
+      setUserLocation({ lat: fallbackLat, lng: fallbackLng });
+      setMapSrc(`https://maps.google.com/maps?width=100%25&height=600&hl=en&q=${fallbackLat},${fallbackLng}+(Apollo%20Clinic)&t=&z=14&ie=UTF8&iwloc=B&output=embed`);
+      await fetchClinics(fallbackLat, fallbackLng);
+    } finally {
       setLoading(false);
     }
   };
