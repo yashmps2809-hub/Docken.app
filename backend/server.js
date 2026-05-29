@@ -43,13 +43,45 @@ app.get('/api/health', (req, res) => {
 });
 
 // Diagnostic check for database connection
-app.get('/api/diagnostic', (req, res) => {
-  res.json({
-    readyState: mongoose.connection.readyState,
-    readyStateText: mongoose.connection.readyState === 1 ? 'Connected' : 'Not Connected',
-    hasMongodbUri: !!process.env.MONGODB_URI,
-    mongodbUriStart: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 15) : 'none'
-  });
+app.get('/api/diagnostic', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 2) {
+      await new Promise((resolve) => {
+        const checkState = () => {
+          if (mongoose.connection.readyState !== 2) {
+            resolve();
+          } else {
+            setTimeout(checkState, 100);
+          }
+        };
+        checkState();
+      });
+    }
+
+    const isConnected = mongoose.connection.readyState === 1;
+    let clinicCount = 0;
+    let errorMsg = null;
+
+    if (isConnected) {
+      const Clinic = require('./models/Clinic');
+      try {
+        clinicCount = await Clinic.countDocuments({});
+      } catch (err) {
+        errorMsg = err.message;
+      }
+    }
+
+    res.json({
+      readyState: mongoose.connection.readyState,
+      readyStateText: isConnected ? 'Connected' : 'Not Connected',
+      hasMongodbUri: !!process.env.MONGODB_URI,
+      mongodbUriStart: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 15) : 'none',
+      clinicCount,
+      queryError: errorMsg
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 5000;
