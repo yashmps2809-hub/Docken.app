@@ -16,6 +16,9 @@ const bookingSchema = new mongoose.Schema({
   prescription: { type: String, default: '' },
   patientLatitude: { type: Number },
   patientLongitude: { type: Number },
+  travelTimeMins: { type: Number, default: 0 },
+  trafficDelayMins: { type: Number, default: 0 },
+  estimatedWaitTime: { type: Number, default: 15 },
   rating: { type: Number, min: 1, max: 5 },
   completedAt: { type: Date },
   createdAt: { type: Date, default: Date.now }

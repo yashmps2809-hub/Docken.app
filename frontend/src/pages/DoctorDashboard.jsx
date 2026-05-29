@@ -73,7 +73,11 @@ const DoctorDashboard = () => {
       if (!bookingData) return;
 
       try {
-        const clinicCoords = (typeof bookingData.clinicId === 'object' && bookingData.clinicId?.location?.coordinates) || [79.9864, 23.1815]; // [lng, lat]
+        const isCityHealth = (typeof bookingData.clinicId === 'object' && bookingData.clinicId?.name?.toLowerCase().includes("city health")) ||
+                             (doctorProfile?.clinicId?.name?.toLowerCase().includes("city health"));
+        const defaultCoords = isCityHealth ? [79.9411, 23.1685] : [79.9864, 23.1815]; // fallback (City Health vs Apollo Clinic)
+        
+        const clinicCoords = (typeof bookingData.clinicId === 'object' && bookingData.clinicId?.location?.coordinates) || defaultCoords; // [lng, lat]
         const clinicLat = clinicCoords[1];
         const clinicLng = clinicCoords[0];
 

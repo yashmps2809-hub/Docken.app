@@ -17,6 +17,7 @@ const PatientLiveQueue = () => {
   
   const [queue, setQueue] = useState([]);
   const [stats, setStats] = useState(null);
+  const [liveBooking, setLiveBooking] = useState(booking);
 
   useEffect(() => {
     if (!booking || !clinicId) {
@@ -49,6 +50,15 @@ const PatientLiveQueue = () => {
       setQueue(qRes.data);
       const statsRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/stats/${clinicId}/${doctorName}?t=${Date.now()}`);
       setStats(statsRes.data);
+
+      try {
+        const bRes = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/queue/booking/${booking._id}?t=${Date.now()}`);
+        if (bRes.data) {
+          setLiveBooking(bRes.data);
+        }
+      } catch (bErr) {
+        console.warn("Error fetching live booking info:", bErr.message);
+      }
 
       // 2. Fetch and upload live location coordinates
       try {
@@ -98,7 +108,7 @@ const PatientLiveQueue = () => {
   const currentToken = queue.length > 0 && queue[0].status === 'current' ? queue[0].tokenNumber : (queue.length > 0 ? queue[0].tokenNumber : '--');
   const myPos = getMyPosition();
   const ahead = myPos > 0 ? myPos : 0;
-  const eta = (ahead * 15) + (stats?.delayedByMins || 0);
+  const eta = liveBooking?.estimatedWaitTime || (ahead * 15) + (stats?.delayedByMins || 0);
 
   const handleCancel = async () => {
     if (window.confirm("Are you sure you want to cancel your appointment?")) {
@@ -142,6 +152,24 @@ const PatientLiveQueue = () => {
               <div style={{fontSize: '0.75rem', color: 'var(--muted)'}}>{ahead} ahead of you</div>
             </div>
           </div>
+          
+          {liveBooking?.travelTimeMins > 0 && (
+            <div style={{ 
+              marginTop: '12px', 
+              background: '#f8fafc', 
+              border: '1px solid var(--border)', 
+              borderRadius: '12px',
+              padding: '10px 14px', 
+              fontSize: '0.8rem', 
+              color: 'var(--muted)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              fontWeight: 600
+            }}>
+              🚗 <span>Travel Time: <strong>{liveBooking.travelTimeMins} mins</strong> (includes {liveBooking.trafficDelayMins} mins traffic delay)</span>
+            </div>
+          )}
           
           <div className="queue-list stagger-in">
             {queue.map((b, index) => {
