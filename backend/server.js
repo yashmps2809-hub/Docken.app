@@ -25,10 +25,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Database Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/docken')
-.then(() => console.log('✅ MongoDB Connected!'))
-.catch(err => console.error('❌ MongoDB Connection Error:', err));
+// Database connection middleware to ensure Mongoose is connected in serverless environment
+let isConnected = false;
+const connectDb = async () => {
+  if (isConnected && mongoose.connection.readyState === 1) return;
+  
+  if (mongoose.connection.readyState === 1) {
+    isConnected = true;
+    return;
+  }
+  
+  console.log('Connecting to MongoDB...');
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/docken', {
+    serverSelectionTimeoutMS: 5000
+  });
+  isConnected = true;
+  console.log('✅ MongoDB Connected!');
+};
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDb();
+    next();
+  } catch (err) {
+    console.error('Database connection middleware error:', err.message);
+    res.status(500).json({ error: 'Database connection failed. Please try again.' });
+  }
+});
 
 // API Routes
 app.use('/api/clinics', require('./routes/clinicRoutes'));
