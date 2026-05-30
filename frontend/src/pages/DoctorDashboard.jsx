@@ -39,6 +39,11 @@ const DoctorDashboard = () => {
   const [simDoctorActive, setSimDoctorActive] = useState(false);
   const simDoctorActiveRef = useRef(false);
 
+  const trackingModalRef = useRef(trackingModal);
+  useEffect(() => {
+    trackingModalRef.current = trackingModal;
+  }, [trackingModal]);
+
   useEffect(() => {
     if (!trackingModal.show || !trackingModal.booking) {
       setIframeUrl('');
@@ -164,7 +169,7 @@ const DoctorDashboard = () => {
       const totalSteps = 15;
 
       const simInterval = setInterval(async () => {
-        if (!localStorage.getItem('doctorSession')) { // if logged out or closed dashboard, stop
+        if (!localStorage.getItem('doctorSession') || !trackingModalRef.current.show || trackingModalRef.current.booking?._id !== booking._id) { // if logged out or closed dashboard or closed tracking modal, stop
           clearInterval(simInterval);
           setSimulationActive(false);
           return;
