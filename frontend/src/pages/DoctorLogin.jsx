@@ -31,7 +31,8 @@ const DoctorLogin = () => {
       localStorage.setItem('doctorSession', JSON.stringify(res.data));
       navigate('/doctor/dashboard', { state: { doctor: res.data } });
     } catch (err) {
-      alert(err.response?.data?.error || 'Login failed');
+      const errMsg = err.response ? (err.response.data?.error || 'Login failed') : 'Network error. Please check your internet connection.';
+      alert(errMsg);
     }
   };
 
@@ -48,7 +49,8 @@ const DoctorLogin = () => {
         if (err.response && err.response.status === 404) {
           navigate('/doctor/register', { state: { name: user.displayName, email: user.email } });
         } else {
-          alert('Server error while checking doctor profile.');
+          const errMsg = err.response ? 'Server error while checking doctor profile.' : 'Network error. Please check your internet connection.';
+          alert(errMsg);
         }
       }
     } catch (error) {
@@ -78,7 +80,8 @@ const DoctorLogin = () => {
         if (err.response && err.response.status === 404) {
           navigate('/doctor/register', { state: { name: '', email: `${phone}@docken.app` } });
         } else {
-          alert('Server error');
+          const errMsg = err.response ? 'Server error' : 'Network error. Please check your internet connection.';
+          alert(errMsg);
         }
       }
     } else {
