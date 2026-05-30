@@ -68,43 +68,7 @@ router.post('/book', async (req, res) => {
   }
 });
 
-// @route   GET /api/queue/:clinicId/:doctorName
-// @desc    Get the live queue for a specific doctor
-router.get('/:clinicId/:doctorName', async (req, res) => {
-  try {
-    const { clinicId, doctorName } = req.params;
 
-    const queue = await Booking.find({ 
-      clinicId, 
-      doctorName, 
-      status: { $in: ['waiting', 'current'] } 
-    }).sort({ createdAt: 1 });
-
-    // Fetch the doctor's delay
-    const Doctor = require('../models/Doctor');
-    const doctor = await Doctor.findOne({ name: doctorName, clinicId });
-    const delay = doctor ? doctor.delayedByMins : 0;
-
-    // Dynamically calculate estimatedWaitTime for each patient in the active queue
-    const updatedQueue = queue.map((booking, index) => {
-      const clinicObj = booking.toObject();
-      const ahead = index; 
-
-      const travelTime = clinicObj.travelTimeMins || 0;
-      const trafficDelay = clinicObj.trafficDelayMins || 0;
-
-      const queueWait = (ahead * 15) + delay;
-      clinicObj.estimatedWaitTime = Math.max(queueWait, travelTime + trafficDelay);
-      
-      return clinicObj;
-    });
-
-    res.json(updatedQueue);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server Error' });
-  }
-});
 
 // @route   GET /api/queue/stats/:clinicId/:doctorName
 // @desc    Get stats for a specific doctor today
@@ -387,6 +351,44 @@ router.put('/skip/:bookingId', async (req, res) => {
     }
 
     res.json(booking);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+// @route   GET /api/queue/:clinicId/:doctorName
+// @desc    Get the live queue for a specific doctor
+router.get('/:clinicId/:doctorName', async (req, res) => {
+  try {
+    const { clinicId, doctorName } = req.params;
+
+    const queue = await Booking.find({ 
+      clinicId, 
+      doctorName, 
+      status: { $in: ['waiting', 'current'] } 
+    }).sort({ createdAt: 1 });
+
+    // Fetch the doctor's delay
+    const Doctor = require('../models/Doctor');
+    const doctor = await Doctor.findOne({ name: doctorName, clinicId });
+    const delay = doctor ? doctor.delayedByMins : 0;
+
+    // Dynamically calculate estimatedWaitTime for each patient in the active queue
+    const updatedQueue = queue.map((booking, index) => {
+      const clinicObj = booking.toObject();
+      const ahead = index; 
+
+      const travelTime = clinicObj.travelTimeMins || 0;
+      const trafficDelay = clinicObj.trafficDelayMins || 0;
+
+      const queueWait = (ahead * 15) + delay;
+      clinicObj.estimatedWaitTime = Math.max(queueWait, travelTime + trafficDelay);
+      
+      return clinicObj;
+    });
+
+    res.json(updatedQueue);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server Error' });
