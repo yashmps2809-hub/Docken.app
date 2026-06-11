@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
+import { Capacitor } from '@capacitor/core';
 import axios from 'axios';
 
 const PatientLogin = () => {
@@ -10,7 +11,6 @@ const PatientLogin = () => {
   const [patientName, setPatientName] = useState('');
   const [showOTP, setShowOTP] = useState(false);
   const [otp, setOtp] = useState('');
-  const [generatedOTP, setGeneratedOTP] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem('patientSession');
@@ -19,37 +19,73 @@ const PatientLogin = () => {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    // Check if redirect result is present (for Google Sign-in redirect flow on mobile/native WebView)
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          const user = result.user;
+          const patientData = {
+            name: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL,
+          };
+          try {
+            await axios.post('https://backend-nine-kappa-32.vercel.app/api/patients/save', {
+              name: patientData.name,
+              phone: patientData.email, // using email as unique identifier for google users
+              email: patientData.email
+            });
+          } catch (err) {
+            console.error('Failed to save patient profile to MongoDB:', err);
+          }
+          localStorage.setItem('patientSession', JSON.stringify(patientData));
+          alert(`Welcome ${user.displayName}!`);
+          navigate('/patient/dashboard');
+        }
+      } catch (error) {
+        console.error('Redirect login error:', error);
+      }
+    };
+    checkRedirect();
+  }, [navigate]);
+
   const handleGoogleLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      const patientData = {
-        name: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-      };
+      if (Capacitor.isNativePlatform()) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        
+        const patientData = {
+          name: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+        };
 
-      try {
-        await axios.post('https://backend-nine-kappa-32.vercel.app/api/patients/save', {
-          name: patientData.name,
-          phone: patientData.email, // using email as unique identifier for google users
-          email: patientData.email
-        });
-      } catch (err) {
-        console.error('Failed to save patient profile to MongoDB:', err);
+        try {
+          await axios.post('https://backend-nine-kappa-32.vercel.app/api/patients/save', {
+            name: patientData.name,
+            phone: patientData.email, // using email as unique identifier for google users
+            email: patientData.email
+          });
+        } catch (err) {
+          console.error('Failed to save patient profile to MongoDB:', err);
+        }
+
+        localStorage.setItem('patientSession', JSON.stringify(patientData));
+        alert(`Welcome ${user.displayName}!`);
+        navigate('/patient/dashboard');
       }
-
-      localStorage.setItem('patientSession', JSON.stringify(patientData));
-      alert(`Welcome ${user.displayName}!`);
-      navigate('/patient/dashboard');
     } catch (error) {
       console.error(error);
-      alert('Google Sign-In Failed. Please ensure Google Auth is enabled in your Firebase Console.');
+      alert('Google Sign-In Failed: ' + (error.message || error) + '\n\nNote: If Google Sign-In is blocked by the WebView container, please log in using Mobile Number & OTP.');
     }
   };
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     if (!patientName.trim()) {
       alert("Please enter your name first.");
       return;
@@ -58,32 +94,45 @@ const PatientLogin = () => {
       alert("Please enter a valid 10-digit mobile number.");
       return;
     }
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOTP(code);
-    setShowOTP(true);
-    alert(`[SIMULATED SMS]\nYour DOCKEN OTP is: ${code}`);
+    try {
+      const res = await axios.post('https://backend-nine-kappa-32.vercel.app/api/auth/send-otp', { phone });
+      setShowOTP(true);
+      if (res.data.otp) {
+        // Fallback for simulated OTP
+        alert(`[SIMULATED SMS]\nYour DOCKEN OTP is: ${res.data.otp}`);
+      } else {
+        alert(res.data.message || 'OTP sent successfully.');
+      }
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Failed to send OTP. Please try again.';
+      alert(errMsg);
+    }
   };
 
   const handleVerifyOTP = async () => {
-    if (otp === generatedOTP || otp === '123456') {
-      const patientData = {
-        name: patientName.trim() || 'Guest Patient',
-        phone: phone,
-        email: `${phone}@docken.app` // placeholder
-      };
+    try {
+      const res = await axios.post('https://backend-nine-kappa-32.vercel.app/api/auth/verify-otp', { phone, otp });
+      if (res.data.success) {
+        const patientData = {
+          name: patientName.trim() || 'Guest Patient',
+          phone: phone,
+          email: `${phone}@docken.app` // placeholder
+        };
 
-      try {
-        // Save to database
-        await axios.post('https://backend-nine-kappa-32.vercel.app/api/patients/save', patientData);
-      } catch (err) {
-        console.error('Failed to save patient profile to MongoDB:', err);
+        try {
+          // Save to database
+          await axios.post('https://backend-nine-kappa-32.vercel.app/api/patients/save', patientData);
+        } catch (err) {
+          console.error('Failed to save patient profile to MongoDB:', err);
+        }
+
+        localStorage.setItem('patientSession', JSON.stringify(patientData));
+        alert('Verification successful!');
+        navigate('/patient/dashboard');
       }
-
-      localStorage.setItem('patientSession', JSON.stringify(patientData));
-      alert('Verification successful!');
-      navigate('/patient/dashboard');
-    } else {
-      alert('Invalid OTP');
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Invalid OTP. Please try again.';
+      alert(errMsg);
     }
   };
 

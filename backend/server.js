@@ -54,6 +54,7 @@ app.use(async (req, res, next) => {
 });
 
 // API Routes
+app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/clinics', require('./routes/clinicRoutes'));
 app.use('/api/doctors', require('./routes/doctorRoutes'));
 app.use('/api/queue', require('./routes/queueRoutes'));

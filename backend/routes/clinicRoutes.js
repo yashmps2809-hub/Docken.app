@@ -78,4 +78,17 @@ router.post('/seed', async (req, res) => {
   }
 });
 
+// @route   GET /api/clinics/:id
+// @desc    Get clinic details by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const clinic = await Clinic.findById(req.params.id);
+    if (!clinic) return res.status(404).json({ error: 'Clinic not found' });
+    res.json(clinic);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 module.exports = router;

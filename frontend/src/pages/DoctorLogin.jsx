@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
+import { Capacitor } from '@capacitor/core';
 import axios from 'axios';
 
 const DoctorLogin = () => {
@@ -12,13 +13,39 @@ const DoctorLogin = () => {
   const [phone, setPhone] = useState('');
   const [showOTP, setShowOTP] = useState(false);
   const [otp, setOtp] = useState('');
-  const [generatedOTP, setGeneratedOTP] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem('doctorSession');
     if (saved) {
       navigate('/doctor/dashboard');
     }
+  }, [navigate]);
+
+  useEffect(() => {
+    // Check if redirect result is present (for Google Sign-in redirect flow on mobile/native WebView)
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          const user = result.user;
+          try {
+            const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${user.email}`);
+            localStorage.setItem('doctorSession', JSON.stringify(res.data));
+            navigate('/doctor/dashboard', { state: { doctor: res.data } });
+          } catch (err) {
+            if (err.response && err.response.status === 404) {
+              navigate('/doctor/register', { state: { name: user.displayName, email: user.email } });
+            } else {
+              const errMsg = err.response ? 'Server error while checking doctor profile.' : 'Network error. Please check your internet connection.';
+              alert(errMsg);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Redirect login error:', error);
+      }
+    };
+    checkRedirect();
   }, [navigate]);
 
   const handlePasswordLogin = async () => {
@@ -38,54 +65,71 @@ const DoctorLogin = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      try {
-        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${user.email}`);
-        localStorage.setItem('doctorSession', JSON.stringify(res.data));
-        navigate('/doctor/dashboard', { state: { doctor: res.data } });
-      } catch (err) {
-        if (err.response && err.response.status === 404) {
-          navigate('/doctor/register', { state: { name: user.displayName, email: user.email } });
-        } else {
-          const errMsg = err.response ? 'Server error while checking doctor profile.' : 'Network error. Please check your internet connection.';
-          alert(errMsg);
+      if (Capacitor.isNativePlatform()) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        
+        try {
+          const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${user.email}`);
+          localStorage.setItem('doctorSession', JSON.stringify(res.data));
+          navigate('/doctor/dashboard', { state: { doctor: res.data } });
+        } catch (err) {
+          if (err.response && err.response.status === 404) {
+            navigate('/doctor/register', { state: { name: user.displayName, email: user.email } });
+          } else {
+            const errMsg = err.response ? 'Server error while checking doctor profile.' : 'Network error. Please check your internet connection.';
+            alert(errMsg);
+          }
         }
       }
     } catch (error) {
       console.error(error);
-      alert('Google Sign-In Failed.');
+      alert('Google Sign-In Failed: ' + (error.message || error) + '\n\nNote: If Google Sign-In is blocked by the WebView container, please sign in with Email & Password or OTP.');
     }
   };
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     if (phone.length < 10) {
       alert("Please enter a valid 10-digit number");
       return;
     }
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOTP(code);
-    setShowOTP(true);
-    alert(`[SIMULATED SMS]\nYour DOCKEN OTP is: ${code}`);
+    try {
+      const res = await axios.post('https://backend-nine-kappa-32.vercel.app/api/auth/send-otp', { phone });
+      setShowOTP(true);
+      if (res.data.otp) {
+        // Fallback for simulated OTP
+        alert(`[SIMULATED SMS]\nYour DOCKEN OTP is: ${res.data.otp}`);
+      } else {
+        alert(res.data.message || 'OTP sent successfully.');
+      }
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Failed to send OTP. Please try again.';
+      alert(errMsg);
+    }
   };
 
   const handleVerifyOTP = async () => {
-    if (otp === generatedOTP || otp === '123456') {
-      try {
-        const res = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${phone}@docken.app`);
-        localStorage.setItem('doctorSession', JSON.stringify(res.data));
-        navigate('/doctor/dashboard', { state: { doctor: res.data } });
-      } catch (err) {
-        if (err.response && err.response.status === 404) {
-          navigate('/doctor/register', { state: { name: '', email: `${phone}@docken.app` } });
-        } else {
-          const errMsg = err.response ? 'Server error' : 'Network error. Please check your internet connection.';
-          alert(errMsg);
+    try {
+      const res = await axios.post('https://backend-nine-kappa-32.vercel.app/api/auth/verify-otp', { phone, otp });
+      if (res.data.success) {
+        try {
+          const resDoc = await axios.get(`https://backend-nine-kappa-32.vercel.app/api/doctors/email/${phone}@docken.app`);
+          localStorage.setItem('doctorSession', JSON.stringify(resDoc.data));
+          navigate('/doctor/dashboard', { state: { doctor: resDoc.data } });
+        } catch (err) {
+          if (err.response && err.response.status === 404) {
+            navigate('/doctor/register', { state: { name: '', email: `${phone}@docken.app` } });
+          } else {
+            const errMsg = err.response ? 'Server error' : 'Network error. Please check your internet connection.';
+            alert(errMsg);
+          }
         }
       }
-    } else {
-      alert('Invalid OTP');
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Invalid OTP. Please try again.';
+      alert(errMsg);
     }
   };
 

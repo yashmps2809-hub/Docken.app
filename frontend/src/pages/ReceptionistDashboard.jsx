@@ -62,7 +62,16 @@ const ReceptionistDashboard = () => {
             <h2 style={{margin: 0, color: 'var(--accent)', fontSize: '2rem'}}>Reception</h2>
             <div style={{color: 'var(--muted)'}}>{receptionist.clinicId.name}</div>
           </div>
-          <button className="btn btn-secondary" style={{padding: '8px 16px', fontSize: '0.9rem'}} onClick={handleLogout}>Logout</button>
+          <div style={{display: 'flex', gap: '10px'}}>
+            <button 
+              className="btn btn-ghost" 
+              style={{padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border)'}} 
+              onClick={() => window.open(`/monitor/${receptionist.clinicId._id}`, '_blank')}
+            >
+              📺 Live TV Monitor
+            </button>
+            <button className="btn btn-secondary" style={{padding: '8px 16px', fontSize: '0.9rem'}} onClick={handleLogout}>Logout</button>
+          </div>
         </div>
 
         <div className="section-label" style={{marginBottom: '14px'}}>// ADD MANUAL WALK-IN</div>

@@ -16,6 +16,7 @@ import DoctorDashboard from './pages/DoctorDashboard';
 import DoctorRegistration from './pages/DoctorRegistration';
 import ReceptionistLogin from './pages/ReceptionistLogin';
 import ReceptionistDashboard from './pages/ReceptionistDashboard';
+import QueueMonitor from './pages/QueueMonitor';
 
 const HardwareBackButtonHandler = () => {
   const navigate = useNavigate();
@@ -111,6 +112,9 @@ function App() {
 
         {/* Receptionist Routes */}
         <Route path="/receptionist/dashboard" element={<ReceptionistDashboard />} />
+
+        {/* Monitor Route */}
+        <Route path="/monitor/:clinicId" element={<QueueMonitor />} />
         </Routes>
       </div>
     </BrowserRouter>
